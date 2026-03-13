@@ -1,0 +1,99 @@
+# EASM Scanner — Default Settings
+# ──────────────────────────────────────────────────────────
+
+discovery:
+  # Maximum concurrent threads for discovery tasks
+  threads: 50
+  # DNS resolvers for bulk resolution
+  resolvers:
+    - "8.8.8.8"
+    - "8.8.4.4"
+    - "1.1.1.1"
+    - "1.0.0.1"
+    - "9.9.9.9"
+  # Timeout in seconds for DNS queries
+  dns_timeout: 5
+  # Timeout in seconds for HTTP probes
+  http_timeout: 10
+  # Rate limit: max requests per second per target
+  rate_limit: 50
+
+port_scanning:
+  # Top ports to scan (common web/service ports)
+  top_ports:
+    - 21    # FTP
+    - 22    # SSH
+    - 23    # Telnet
+    - 25    # SMTP
+    - 53    # DNS
+    - 80    # HTTP
+    - 110   # POP3
+    - 143   # IMAP
+    - 443   # HTTPS
+    - 445   # SMB
+    - 993   # IMAPS
+    - 995   # POP3S
+    - 1433  # MSSQL
+    - 1521  # Oracle
+    - 2082  # cPanel
+    - 2083  # cPanel SSL
+    - 2086  # WHM
+    - 2087  # WHM SSL
+    - 3306  # MySQL
+    - 3389  # RDP
+    - 5432  # PostgreSQL
+    - 5900  # VNC
+    - 6379  # Redis
+    - 8000  # HTTP alt
+    - 8080  # HTTP proxy
+    - 8443  # HTTPS alt
+    - 8888  # HTTP alt
+    - 9090  # HTTP alt
+    - 9200  # Elasticsearch
+    - 27017 # MongoDB
+  # Connection timeout in seconds
+  timeout: 3
+  # Max concurrent connections
+  threads: 100
+
+http_probing:
+  # Follow redirects
+  follow_redirects: true
+  # Max redirects to follow
+  max_redirects: 5
+  # Timeout in seconds
+  timeout: 10
+  # Threads
+  threads: 50
+  # Ports to probe for HTTP/HTTPS
+  ports:
+    - 80
+    - 443
+    - 8080
+    - 8443
+    - 8000
+    - 8888
+    - 9090
+
+subdomain_brute:
+  # Enable brute-force subdomain enumeration
+  enabled: false
+  # Wordlist file (relative to project root)
+  wordlist: "wordlists/subdomains-top1000.txt"
+  # Threads for brute-force
+  threads: 50
+
+ct_monitor:
+  # crt.sh query timeout
+  timeout: 30
+  # Include expired certificates
+  include_expired: false
+
+reporting:
+  # Severity colors (ANSI)
+  colors:
+    CRITICAL: "\033[91m"
+    HIGH: "\033[31m"
+    MEDIUM: "\033[33m"
+    LOW: "\033[36m"
+    INFO: "\033[37m"

@@ -1,0 +1,1 @@
+# EASM Scanner — Data Models
