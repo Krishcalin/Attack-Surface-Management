@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117"/>
+      <stop offset="50%" style="stop-color:#161b22"/>
+      <stop offset="100%" style="stop-color:#0d1117"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1a73e8"/>
+      <stop offset="50%" style="stop-color:#58a6ff"/>
+      <stop offset="100%" style="stop-color:#39d2c0"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#39d2c0;stop-opacity:0"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#58a6ff" flood-opacity="0.25"/>
+    </filter>
+    <filter id="textglow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="340" fill="url(#bg)" rx="16"/>
+
+  <!-- Border -->
+  <rect x="1" y="1" width="1198" height="338" fill="none" stroke="url(#accent)" stroke-width="1.5" rx="16" opacity="0.4"/>
+
+  <!-- Decorative grid lines -->
+  <g opacity="0.04" stroke="#58a6ff" stroke-width="0.5">
+    <line x1="0" y1="68" x2="1200" y2="68"/>
+    <line x1="0" y1="136" x2="1200" y2="136"/>
+    <line x1="0" y1="204" x2="1200" y2="204"/>
+    <line x1="0" y1="272" x2="1200" y2="272"/>
+    <line x1="240" y1="0" x2="240" y2="340"/>
+    <line x1="480" y1="0" x2="480" y2="340"/>
+    <line x1="720" y1="0" x2="720" y2="340"/>
+    <line x1="960" y1="0" x2="960" y2="340"/>
+  </g>
+
+  <!-- Glow orb top-left -->
+  <circle cx="120" cy="80" r="180" fill="url(#glow)" opacity="0.5"/>
+
+  <!-- Glow orb bottom-right -->
+  <circle cx="1080" cy="260" r="200" fill="url(#glow)" opacity="0.3"/>
+
+  <!-- Shield icon -->
+  <g transform="translate(80, 85)" filter="url(#shadow)">
+    <path d="M60 0 L120 25 L120 70 C120 115 95 145 60 165 C25 145 0 115 0 70 L0 25 Z"
+          fill="none" stroke="url(#accent)" stroke-width="3" opacity="0.9"/>
+    <path d="M60 12 L110 33 L110 70 C110 108 89 134 60 152 C31 134 10 108 10 70 L10 33 Z"
+          fill="#161b22" stroke="none" opacity="0.6"/>
+    <!-- Radar sweep lines inside shield -->
+    <circle cx="60" cy="80" r="30" fill="none" stroke="#58a6ff" stroke-width="1" opacity="0.3"/>
+    <circle cx="60" cy="80" r="18" fill="none" stroke="#58a6ff" stroke-width="0.8" opacity="0.2"/>
+    <circle cx="60" cy="80" r="6" fill="#58a6ff" opacity="0.6"/>
+    <!-- Sweep line -->
+    <line x1="60" y1="80" x2="90" y2="60" stroke="#39d2c0" stroke-width="1.5" opacity="0.7"/>
+    <!-- Detection dots -->
+    <circle cx="75" cy="65" r="3" fill="#f85149" opacity="0.9"/>
+    <circle cx="45" cy="70" r="2.5" fill="#d29922" opacity="0.8"/>
+    <circle cx="70" cy="95" r="2" fill="#3fb950" opacity="0.7"/>
+    <!-- Crosshair -->
+    <line x1="60" y1="55" x2="60" y2="48" stroke="#58a6ff" stroke-width="1" opacity="0.5"/>
+    <line x1="60" y1="105" x2="60" y2="112" stroke="#58a6ff" stroke-width="1" opacity="0.5"/>
+    <line x1="35" y1="80" x2="28" y2="80" stroke="#58a6ff" stroke-width="1" opacity="0.5"/>
+    <line x1="85" y1="80" x2="92" y2="80" stroke="#58a6ff" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Title text -->
+  <text x="230" y="140" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif"
+        font-size="52" font-weight="800" fill="url(#accent)" filter="url(#textglow)"
+        letter-spacing="-1">EASM Scanner</text>
+
+  <!-- Subtitle -->
+  <text x="232" y="175" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif"
+        font-size="18" fill="#8b949e" font-weight="400" letter-spacing="0.5">
+    External Attack Surface Management
+  </text>
+
+  <!-- Version badge -->
+  <g transform="translate(232, 195)">
+    <rect width="56" height="22" rx="6" fill="#1a73e8" opacity="0.25"/>
+    <text x="28" y="15" font-family="monospace" font-size="11" fill="#58a6ff"
+          text-anchor="middle" font-weight="700">v4.0.0</text>
+  </g>
+
+  <!-- Phase badges -->
+  <g transform="translate(300, 195)">
+    <rect width="76" height="22" rx="6" fill="rgba(63,185,80,0.15)"/>
+    <text x="38" y="15" font-family="sans-serif" font-size="10" fill="#3fb950"
+          text-anchor="middle" font-weight="600">Discovery</text>
+  </g>
+  <g transform="translate(384, 195)">
+    <rect width="82" height="22" rx="6" fill="rgba(88,166,255,0.15)"/>
+    <text x="41" y="15" font-family="sans-serif" font-size="10" fill="#58a6ff"
+          text-anchor="middle" font-weight="600">Enrichment</text>
+  </g>
+  <g transform="translate(474, 195)">
+    <rect width="96" height="22" rx="6" fill="rgba(210,153,34,0.15)"/>
+    <text x="48" y="15" font-family="sans-serif" font-size="10" fill="#d29922"
+          text-anchor="middle" font-weight="600">Vuln Assessment</text>
+  </g>
+  <g transform="translate(578, 195)">
+    <rect width="82" height="22" rx="6" fill="rgba(188,140,255,0.15)"/>
+    <text x="41" y="15" font-family="sans-serif" font-size="10" fill="#bc8cff"
+          text-anchor="middle" font-weight="600">Integration</text>
+  </g>
+
+  <!-- Description -->
+  <text x="232" y="245" font-family="'Segoe UI', sans-serif" font-size="14" fill="#c9d1d9" opacity="0.85">
+    Discover, map and analyse your organisation's internet-facing attack surface.
+  </text>
+  <text x="232" y="266" font-family="'Segoe UI', sans-serif" font-size="14" fill="#c9d1d9" opacity="0.65">
+    14-step pipeline  |  30+ modules  |  50+ security rules  |  REST API + Dashboard
+  </text>
+
+  <!-- Right side stats -->
+  <g transform="translate(830, 85)">
+    <!-- Stats boxes -->
+    <g>
+      <rect width="100" height="64" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="50" y="30" font-family="monospace" font-size="24" fill="#f85149"
+            text-anchor="middle" font-weight="700">14</text>
+      <text x="50" y="50" font-family="sans-serif" font-size="10" fill="#8b949e"
+            text-anchor="middle">Pipeline Steps</text>
+    </g>
+    <g transform="translate(112, 0)">
+      <rect width="100" height="64" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="50" y="30" font-family="monospace" font-size="24" fill="#58a6ff"
+            text-anchor="middle" font-weight="700">50+</text>
+      <text x="50" y="50" font-family="sans-serif" font-size="10" fill="#8b949e"
+            text-anchor="middle">Security Rules</text>
+    </g>
+    <g transform="translate(224, 0)">
+      <rect width="100" height="64" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="50" y="30" font-family="monospace" font-size="24" fill="#3fb950"
+            text-anchor="middle" font-weight="700">30+</text>
+      <text x="50" y="50" font-family="sans-serif" font-size="10" fill="#8b949e"
+            text-anchor="middle">Modules</text>
+    </g>
+  </g>
+
+  <!-- Right side feature tags -->
+  <g transform="translate(830, 170)" font-family="monospace" font-size="11" fill="#8b949e">
+    <g>
+      <rect width="140" height="24" rx="5" fill="rgba(248,81,73,0.08)" stroke="#f85149" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#f85149">CVE Detection</text>
+    </g>
+    <g transform="translate(148, 0)">
+      <rect width="140" height="24" rx="5" fill="rgba(210,153,34,0.08)" stroke="#d29922" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#d29922">Risk Scoring</text>
+    </g>
+    <g transform="translate(0, 32)">
+      <rect width="140" height="24" rx="5" fill="rgba(57,210,192,0.08)" stroke="#39d2c0" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#39d2c0">Cloud Enum</text>
+    </g>
+    <g transform="translate(148, 32)">
+      <rect width="140" height="24" rx="5" fill="rgba(88,166,255,0.08)" stroke="#58a6ff" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#58a6ff">SIEM Export</text>
+    </g>
+    <g transform="translate(0, 64)">
+      <rect width="140" height="24" rx="5" fill="rgba(188,140,255,0.08)" stroke="#bc8cff" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#bc8cff">Jira + Alerting</text>
+    </g>
+    <g transform="translate(148, 64)">
+      <rect width="140" height="24" rx="5" fill="rgba(63,185,80,0.08)" stroke="#3fb950" stroke-width="0.5"/>
+      <text x="10" y="16" fill="#3fb950">REST API</text>
+    </g>
+  </g>
+
+  <!-- Bottom accent line -->
+  <rect x="80" y="300" width="1040" height="2" rx="1" fill="url(#accent)" opacity="0.2"/>
+
+  <!-- Footer text -->
+  <text x="600" y="325" font-family="monospace" font-size="11" fill="#484f58"
+        text-anchor="middle" letter-spacing="2">
+    PYTHON  |  OPEN SOURCE  |  CYCOGNITO-LIKE  |  GO TOOL INTEGRATION
+  </text>
+</svg>
