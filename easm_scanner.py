@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
 EASM -- External Attack Surface Management Scanner
-Version 1.0.0
+Version 4.0.0
 
 Discovers, maps and analyses an organisation's internet-facing
 attack surface from seed domains, IPs, ASNs or an org name.
 
 Pipeline:  Seeds -> Subdomain Discovery -> DNS Resolution
            -> Port Scanning -> HTTP Probing -> CT Log Analysis
-           -> ASN Mapping -> Asset Store -> Report
+           -> ASN Mapping -> Enrichment -> Vulnerability Assessment
+           -> Risk Scoring -> Report
+
+Phase 4:   REST API, Dashboard, Alerting, SIEM Export, Jira, Scheduling
 
 Requires:  pip install requests dnspython
-Optional:  subfinder, httpx, dnsx, naabu, asnmap (Go binaries)
+Optional:  subfinder, httpx, dnsx, naabu, asnmap, nuclei (Go binaries)
+           fastapi, uvicorn (for --serve mode)
 """
 
 from __future__ import annotations
 
-__version__ = "2.0.0"
+__version__ = "4.0.0"
 
 import argparse
 import html as html_mod
@@ -50,6 +54,16 @@ from modules.geoip_enrichment import GeoIPEnrichment
 from modules.screenshot_capture import ScreenshotCapture
 from modules.attribution_engine import AttributionEngine
 from modules.asset_graph import AssetGraph
+
+# Phase 3 modules
+from modules.subdomain_takeover import SubdomainTakeoverDetector
+from modules.vuln_detector import VulnDetector
+from modules.misconfig_detector import MisconfigDetector
+from modules.default_creds import DefaultCredentialTester
+from modules.dns_security import DNSSecurityChecker
+from modules.cloud_enum import CloudStorageEnumerator
+from modules.nuclei_scanner import NucleiScanner
+from modules.risk_scorer import RiskScorer
 
 
 # ── ANSI colours ────────────────────────────────────────────────────
@@ -265,6 +279,66 @@ EXPOSURE_RULES: list[dict[str, str]] = [
         "recommendation": "Enable DNSSEC to prevent DNS spoofing attacks.",
         "cwe": "CWE-350",
     },
+    # ── Phase 3: Vulnerability Assessment rules ────
+    {
+        "id": "EASM-TAKEOVER-001",
+        "category": "Subdomain Takeover",
+        "name": "Subdomain Takeover Vulnerability",
+        "severity": "HIGH",
+        "description": (
+            "A subdomain has a dangling DNS record pointing to an "
+            "unclaimed cloud resource, allowing takeover."
+        ),
+        "recommendation": (
+            "Remove the dangling DNS record or reclaim the "
+            "cloud resource."
+        ),
+        "cwe": "CWE-284",
+    },
+    {
+        "id": "EASM-CVE-001",
+        "category": "CVE",
+        "name": "Known CVE Detected",
+        "severity": "HIGH",
+        "description": (
+            "A known CVE was detected via version fingerprinting "
+            "of an exposed service or application."
+        ),
+        "recommendation": (
+            "Patch or upgrade the affected software to a "
+            "non-vulnerable version."
+        ),
+        "cwe": "CWE-1035",
+    },
+    {
+        "id": "EASM-CRED-001",
+        "category": "Default Credential",
+        "name": "Default Credentials Accepted",
+        "severity": "CRITICAL",
+        "description": (
+            "An exposed service accepts factory-default credentials."
+        ),
+        "recommendation": (
+            "Change the default password immediately and restrict "
+            "service access to authorised networks."
+        ),
+        "cwe": "CWE-798",
+    },
+    {
+        "id": "EASM-CLOUD-001",
+        "category": "Cloud Storage",
+        "name": "Public Cloud Storage Bucket",
+        "severity": "CRITICAL",
+        "description": (
+            "A cloud storage bucket (S3/Azure/GCS) is publicly "
+            "accessible and may contain sensitive data."
+        ),
+        "recommendation": (
+            "Restrict bucket access to authorised principals only. "
+            "Review and remove public ACLs."
+        ),
+        "cwe": "CWE-284",
+    },
 ]
 
 
@@ -273,9 +347,9 @@ EXPOSURE_RULES: list[dict[str, str]] = [
 # ════════════════════════════════════════════════════════════════════
 
 class EASMScanner:
-    """External Attack Surface Management scanner — Phase 1 + 2 pipeline."""
+    """External Attack Surface Management scanner — Phase 1 + 2 + 3 + 4 pipeline."""
 
-    TOTAL_STEPS = 10
+    TOTAL_STEPS = 14
 
     def __init__(
         self,
@@ -320,6 +394,28 @@ class EASMScanner:
         self.tech_profiles: dict = {}
         self.attribution_results: list = []
 
+        # Phase 3 modules
+        self.takeover_detector = SubdomainTakeoverDetector(verbose=verbose)
+        self.vuln_detector = VulnDetector(verbose=verbose)
+        self.misconfig_detector = MisconfigDetector(verbose=verbose)
+        self.cred_tester = DefaultCredentialTester(
+            timeout=5, verbose=verbose,
+        )
+        self.dns_security = DNSSecurityChecker(verbose=verbose)
+        self.cloud_enum = CloudStorageEnumerator(verbose=verbose)
+        self.nuclei = NucleiScanner(verbose=verbose)
+        self.risk_scorer = RiskScorer(verbose=verbose)
+
+        # Phase 3 result caches
+        self.takeover_results: list = []
+        self.vuln_results: list = []
+        self.misconfig_results: list = []
+        self.cred_results: list = []
+        self.dns_sec_results: dict = {}
+        self.cloud_results: list = []
+        self.nuclei_results: list = []
+        self.risk_scores: list = []
+
     # ── Pipeline ────────────────────────────────────────────
 
     def run(
@@ -334,8 +430,12 @@ class EASMScanner:
         skip_ports: bool = False,
         skip_http: bool = False,
         skip_enrichment: bool = False,
+        skip_vuln_assessment: bool = False,
+        skip_nuclei: bool = False,
+        skip_cred_test: bool = False,
+        nuclei_templates: Optional[str] = None,
     ) -> None:
-        """Execute the full Phase 1 + 2 discovery & enrichment pipeline."""
+        """Execute the full Phase 1 + 2 + 3 pipeline."""
 
         N = self.TOTAL_STEPS
         self.start_time = time.time()
@@ -735,6 +835,297 @@ class EASMScanner:
               f"{attrib_count['review']} review, "
               f"{attrib_count['unattributed']} unattributed")
 
+        # ================================================================
+        #  PHASE 3 -- Vulnerability Assessment
+        # ================================================================
+
+        if skip_vuln_assessment:
+            for step_num in range(11, N + 1):
+                self._phase(f"Step {step_num}/{N}", "Vuln Assessment (skipped)")
+            self.end_time = time.time()
+            self._phase_done()
+            return
+
+        # Set nuclei templates dir if provided
+        if nuclei_templates:
+            self.nuclei.templates_dir = nuclei_templates
+
+        # ── Step 11: Vulnerability Detection ─────────────────
+        self._phase(f"Step 11/{N}", "Vulnerability Detection (CVE + Nuclei)")
+
+        # 11a: CVE detection from HTTP headers
+        for hr in http_results:
+            if hr.status_code == 0:
+                continue
+            vulns = self.vuln_detector.detect_from_headers(
+                hr.url, hr.headers,
+            )
+            self.vuln_results.extend(vulns)
+
+        # 11b: CVE detection from port banners
+        for pr in port_results:
+            if pr.banner:
+                vulns = self.vuln_detector.detect_from_banner(
+                    pr.ip, pr.port, pr.banner,
+                )
+                self.vuln_results.extend(vulns)
+
+        # 11c: CVE detection from tech fingerprints
+        for url, profile in self.tech_profiles.items():
+            techs = getattr(profile, "technologies", [])
+            if techs:
+                vulns = self.vuln_detector.detect_from_tech(url, techs)
+                self.vuln_results.extend(vulns)
+
+        # Enrich with EPSS scores
+        if self.vuln_results:
+            self.vuln_detector.enrich_with_epss(self.vuln_results)
+
+        # Generate CVE findings
+        for v in self.vuln_results:
+            sev = v.severity
+            if v.is_kev:
+                sev = "CRITICAL"  # escalate KEV entries
+            self._add_finding(Finding(
+                rule_id="EASM-CVE-001",
+                name=f"Known CVE: {v.cve}",
+                category="CVE",
+                severity=sev,
+                asset_value=v.asset_value,
+                asset_type=v.asset_type,
+                description=v.description,
+                recommendation=(
+                    f"Upgrade {v.product} from {v.version} to a "
+                    f"patched version."
+                ),
+                cve=v.cve,
+                cwe="CWE-1035",
+                evidence=v.evidence,
+                attributes={
+                    "epss_score": v.epss_score,
+                    "is_kev": v.is_kev,
+                },
+            ))
+
+        # 11d: Nuclei scan
+        if not skip_nuclei:
+            nuclei_targets = [
+                hr.url for hr in http_results
+                if hr.status_code and hr.status_code < 400
+            ][:100]  # cap at 100 URLs
+            if nuclei_targets:
+                self.nuclei_results = self.nuclei.scan(nuclei_targets)
+                for nr in self.nuclei_results:
+                    self._add_finding(Finding(
+                        rule_id=f"EASM-NUCLEI-{nr.template_id[:20]}",
+                        name=nr.name,
+                        category="Nuclei",
+                        severity=nr.severity.upper(),
+                        asset_value=nr.matched_at,
+                        asset_type="url",
+                        description=nr.description or nr.name,
+                        evidence=nr.evidence,
+                    ))
+
+        vuln_count = len(self.vuln_results)
+        nuclei_count = len(self.nuclei_results)
+        print(f"  CVEs detected: {vuln_count}")
+        print(f"  Nuclei findings: {nuclei_count}")
+
+        # ── Step 12: Misconfig & Takeover Detection ──────────
+        self._phase(
+            f"Step 12/{N}",
+            "Misconfiguration & Takeover Detection",
+        )
+
+        # 12a: Subdomain takeover
+        all_domains = self.store.all_domains()
+        self.takeover_results = self.takeover_detector.bulk_check(
+            all_domains,
+        )
+        for tr in self.takeover_results:
+            if tr.vulnerable:
+                self._add_finding(Finding(
+                    rule_id="EASM-TAKEOVER-001",
+                    name=f"Subdomain Takeover ({tr.provider})",
+                    category="Subdomain Takeover",
+                    severity=tr.severity,
+                    asset_value=tr.domain,
+                    asset_type="domain",
+                    description=(
+                        f"Subdomain {tr.domain} is vulnerable to "
+                        f"takeover via {tr.provider}."
+                    ),
+                    recommendation=(
+                        "Remove the dangling DNS record or reclaim "
+                        f"the {tr.provider} resource."
+                    ),
+                    cwe="CWE-284",
+                    evidence=tr.evidence,
+                ))
+
+        # 12b: Web misconfigurations
+        live_urls = [
+            hr.url for hr in http_results
+            if hr.status_code and hr.status_code < 400
+        ]
+        if live_urls:
+            self.misconfig_results = self.misconfig_detector.bulk_scan(
+                live_urls, max_urls=50,
+            )
+            for mr in self.misconfig_results:
+                self._add_finding(Finding(
+                    rule_id=mr.rule_id,
+                    name=mr.name,
+                    category="Misconfiguration",
+                    severity=mr.severity,
+                    asset_value=mr.url,
+                    asset_type="url",
+                    description=mr.name,
+                    cwe=mr.cwe,
+                    evidence=mr.evidence,
+                ))
+
+        # 12c: Cloud storage enumeration
+        seed_domains = list(seeds.domains)
+        self.cloud_results = self.cloud_enum.enumerate_from_domains(
+            seed_domains, org_name=org_name,
+        )
+        for cr in self.cloud_results:
+            if cr.publicly_listable or cr.publicly_readable:
+                self._add_finding(Finding(
+                    rule_id="EASM-CLOUD-001",
+                    name=f"Public {cr.provider.upper()} Bucket",
+                    category="Cloud Storage",
+                    severity=cr.severity,
+                    asset_value=cr.bucket_name,
+                    asset_type="url",
+                    description=(
+                        f"Cloud storage bucket '{cr.bucket_name}' "
+                        f"({cr.provider}) is publicly accessible."
+                    ),
+                    recommendation=(
+                        "Restrict bucket access to authorised "
+                        "principals only."
+                    ),
+                    cwe="CWE-284",
+                    evidence=cr.evidence,
+                ))
+
+        takeover_vuln = sum(1 for t in self.takeover_results if t.vulnerable)
+        print(f"  Takeover vulnerable: {takeover_vuln}")
+        print(f"  Misconfigurations: {len(self.misconfig_results)}")
+        print(f"  Public buckets: {len(self.cloud_results)}")
+
+        # ── Step 13: Credential & DNS Security ───────────────
+        self._phase(
+            f"Step 13/{N}", "Credential & DNS Security Testing",
+        )
+
+        # 13a: Default credential testing
+        if not skip_cred_test:
+            cred_targets: list[dict] = []
+            for pr in port_results:
+                if pr.port in (22, 21, 161, 3306, 5432, 6379,
+                               27017, 80, 443, 8080, 8443):
+                    cred_targets.append({
+                        "ip": pr.ip, "port": pr.port,
+                    })
+            if cred_targets:
+                # Cap at 50 targets
+                self.cred_results = self.cred_tester.bulk_test(
+                    cred_targets[:50],
+                )
+                for cr in self.cred_results:
+                    if cr.success:
+                        self._add_finding(Finding(
+                            rule_id="EASM-CRED-001",
+                            name=(
+                                f"Default Credentials ({cr.service})"
+                            ),
+                            category="Default Credential",
+                            severity=cr.severity,
+                            asset_value=f"{cr.ip}:{cr.port}",
+                            asset_type="port",
+                            description=(
+                                f"Service {cr.service} at "
+                                f"{cr.ip}:{cr.port} accepts "
+                                f"default credentials."
+                            ),
+                            recommendation=(
+                                "Change the default password "
+                                "immediately."
+                            ),
+                            cwe="CWE-798",
+                            evidence=cr.evidence,
+                        ))
+        else:
+            print("  Credential testing: skipped")
+
+        # 13b: DNS security (SPF/DKIM/DMARC/AXFR)
+        root_domains = list(seeds.domains)
+        self.dns_sec_results = self.dns_security.bulk_check(
+            root_domains,
+        )
+        for domain, dns_res in self.dns_sec_results.items():
+            for finding_data in dns_res.findings:
+                self._add_finding(Finding(
+                    rule_id=finding_data["rule_id"],
+                    name=finding_data["name"],
+                    category="DNS Security",
+                    severity=finding_data["severity"],
+                    asset_value=domain,
+                    asset_type="domain",
+                    description=finding_data.get("description", ""),
+                    recommendation=finding_data.get(
+                        "recommendation", ""
+                    ),
+                    cwe=finding_data.get("cwe", ""),
+                    evidence=finding_data.get("evidence", ""),
+                ))
+
+        cred_found = sum(1 for c in self.cred_results if c.success)
+        dns_findings = sum(
+            len(r.findings) for r in self.dns_sec_results.values()
+        )
+        print(f"  Default creds found: {cred_found}")
+        print(f"  DNS security findings: {dns_findings}")
+
+        # ── Step 14: Risk Scoring ────────────────────────────
+        self._phase(f"Step 14/{N}", "Risk Scoring & Prioritisation")
+
+        finding_dicts: list[dict] = []
+        for f in self.findings:
+            fd: dict = {
+                "rule_id": f.rule_id,
+                "severity": f.severity,
+                "asset_value": f.asset_value,
+                "asset_type": f.asset_type,
+                "category": f.category,
+                "cve": f.cve,
+            }
+            # Add EPSS/KEV data if available
+            attrs = f.attributes or {}
+            fd["epss_score"] = attrs.get("epss_score", 0.0)
+            fd["is_kev"] = attrs.get("is_kev", False)
+            finding_dicts.append(fd)
+
+        self.risk_scores = self.risk_scorer.score_findings(finding_dicts)
+
+        if self.risk_scores:
+            from modules.risk_scorer import RiskScorer as _RS
+            stats = _RS.aggregate_stats(self.risk_scores)
+            print(f"  Risk scores computed: {stats['count']}")
+            print(f"  Avg risk: {stats['avg_score']}, "
+                  f"Max: {stats['max_score']}")
+            by_level = stats.get("by_level", {})
+            for lvl in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
+                cnt = by_level.get(lvl, 0)
+                if cnt:
+                    print(f"    {lvl}: {cnt}")
+            if stats.get("auto_escalated"):
+                print(f"  Auto-escalated: {stats['auto_escalated']}")
+
         self.end_time = time.time()
         self._phase_done()
 
@@ -887,6 +1278,23 @@ class EASMScanner:
                 if r.verdict == "review"
             ),
         }
+        # Phase 3 vuln assessment stats
+        vuln_assessment = {
+            "cves_detected": len(self.vuln_results),
+            "nuclei_findings": len(self.nuclei_results),
+            "takeover_vulnerable": sum(
+                1 for t in self.takeover_results if t.vulnerable
+            ),
+            "misconfigurations": len(self.misconfig_results),
+            "default_creds_found": sum(
+                1 for c in self.cred_results if c.success
+            ),
+            "dns_security_findings": sum(
+                len(r.findings) for r in self.dns_sec_results.values()
+            ),
+            "public_buckets": len(self.cloud_results),
+            "risk_scores_computed": len(self.risk_scores),
+        }
         graph_stats = self.graph.stats()
         return {
             "version": __version__,
@@ -897,6 +1305,7 @@ class EASMScanner:
             "findings": dict(sev_counts),
             "total_findings": len(self.findings),
             "enrichment": enrichment,
+            "vuln_assessment": vuln_assessment,
             "graph": graph_stats,
         }
 
@@ -944,6 +1353,28 @@ class EASMScanner:
             if enr.get("attributed") or enr.get("review"):
                 print(f"    Attributed  : {enr.get('attributed', 0)} "
                       f"(+{enr.get('review', 0)} review)")
+
+        # ── Vuln assessment stats ──
+        va = s.get("vuln_assessment", {})
+        if any(va.values()):
+            print()
+            print(f"  {BOLD}Vulnerability Assessment:{RESET}")
+            if va.get("cves_detected"):
+                print(f"    CVEs        : {va['cves_detected']}")
+            if va.get("nuclei_findings"):
+                print(f"    Nuclei      : {va['nuclei_findings']}")
+            if va.get("takeover_vulnerable"):
+                print(f"    Takeover    : {va['takeover_vulnerable']}")
+            if va.get("misconfigurations"):
+                print(f"    Misconfigs  : {va['misconfigurations']}")
+            if va.get("default_creds_found"):
+                print(f"    Def. Creds  : {va['default_creds_found']}")
+            if va.get("dns_security_findings"):
+                print(f"    DNS Issues  : {va['dns_security_findings']}")
+            if va.get("public_buckets"):
+                print(f"    Pub Buckets : {va['public_buckets']}")
+            if va.get("risk_scores_computed"):
+                print(f"    Risk Scored : {va['risk_scores_computed']}")
 
         grph = s.get("graph", {})
         if grph.get("total_nodes"):
@@ -1003,6 +1434,33 @@ class EASMScanner:
                 r.to_dict() for r in self.attribution_results
             ],
             "graph": self.graph.to_dict(),
+            # Phase 3 data
+            "vulnerabilities": [
+                v.to_dict() for v in self.vuln_results
+            ],
+            "nuclei": [
+                n.to_dict() for n in self.nuclei_results
+            ],
+            "takeover": [
+                t.to_dict() for t in self.takeover_results
+                if t.vulnerable or t.cname_target
+            ],
+            "misconfigurations": [
+                m.to_dict() for m in self.misconfig_results
+            ],
+            "default_credentials": [
+                c.to_dict() for c in self.cred_results if c.success
+            ],
+            "dns_security": {
+                d: r.to_dict()
+                for d, r in self.dns_sec_results.items()
+            },
+            "cloud_storage": [
+                c.to_dict() for c in self.cloud_results
+            ],
+            "risk_scores": [
+                r.to_dict() for r in self.risk_scores
+            ],
         }
         with open(filepath, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, default=str)
@@ -1194,7 +1652,7 @@ function filterSev(sev) {{
         print(f"""
 {BOLD}+==============================================================+
 |     EASM -- External Attack Surface Management Scanner       |
-|                       v{__version__}                               |
+|                      v{__version__}                               |
 +==============================================================+{RESET}
 """)
 
@@ -1294,6 +1752,88 @@ examples:
         "--screenshot-dir", metavar="DIR", default="screenshots",
         help="Directory for screenshots (default: screenshots)",
     )
+    # Phase 3 options
+    parser.add_argument(
+        "--skip-vuln-assessment", action="store_true",
+        help="Skip Phase 3 vulnerability assessment",
+    )
+    parser.add_argument(
+        "--skip-nuclei", action="store_true",
+        help="Skip Nuclei template scanning",
+    )
+    parser.add_argument(
+        "--skip-cred-test", action="store_true",
+        help="Skip default credential testing",
+    )
+    parser.add_argument(
+        "--nuclei-templates", metavar="DIR",
+        help="Custom Nuclei templates directory",
+    )
+    # Phase 4 options
+    parser.add_argument(
+        "--serve", action="store_true",
+        help="Start REST API server after scan (requires fastapi, uvicorn)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=8888,
+        help="API server port (default: 8888)",
+    )
+    parser.add_argument(
+        "--schedule", type=int, metavar="MINUTES", default=0,
+        help="Run scans on a schedule (interval in minutes)",
+    )
+    parser.add_argument(
+        "--alert-slack", metavar="URL",
+        help="Slack webhook URL for alerts",
+    )
+    parser.add_argument(
+        "--alert-teams", metavar="URL",
+        help="Microsoft Teams webhook URL for alerts",
+    )
+    parser.add_argument(
+        "--alert-webhook", metavar="URL",
+        help="Generic webhook URL for alerts",
+    )
+    parser.add_argument(
+        "--alert-email-to", nargs="+", metavar="EMAIL",
+        help="Email recipient(s) for alerts",
+    )
+    parser.add_argument(
+        "--siem-splunk-url", metavar="URL",
+        help="Splunk HEC URL for SIEM export",
+    )
+    parser.add_argument(
+        "--siem-splunk-token", metavar="TOKEN",
+        help="Splunk HEC token",
+    )
+    parser.add_argument(
+        "--siem-elastic-url", metavar="URL",
+        help="Elasticsearch URL for SIEM export",
+    )
+    parser.add_argument(
+        "--siem-csv", metavar="FILE",
+        help="Export findings to CSV file",
+    )
+    parser.add_argument(
+        "--siem-jsonl", metavar="FILE",
+        help="Export findings to JSON Lines file",
+    )
+    parser.add_argument(
+        "--jira-url", metavar="URL",
+        help="Jira server URL for ticket creation",
+    )
+    parser.add_argument(
+        "--jira-project", metavar="KEY",
+        help="Jira project key (e.g. SEC)",
+    )
+    parser.add_argument(
+        "--jira-token", metavar="TOKEN",
+        help="Jira API token or password",
+    )
+    parser.add_argument(
+        "--jira-user", metavar="EMAIL",
+        help="Jira username or email",
+    )
     parser.add_argument(
         "-v", "--verbose", action="store_true",
         help="Verbose output",
@@ -1305,9 +1845,9 @@ examples:
 
     args = parser.parse_args()
 
-    # Validate: at least one seed source
-    if not any([args.domains, args.ips, args.asn, args.cidr,
-                args.seed_file]):
+    # Validate: at least one seed source (unless --serve alone)
+    if not args.serve and not any([args.domains, args.ips, args.asn,
+                                   args.cidr, args.seed_file]):
         parser.error(
             "Provide at least one seed: -d DOMAIN, -i IP, --asn, "
             "--cidr, or --seed-file"
@@ -1320,25 +1860,212 @@ examples:
         screenshot_dir=args.screenshot_dir,
     )
 
-    scanner.run(
-        domains=args.domains,
-        ips=args.ips,
-        asns=args.asn,
-        cidrs=args.cidr,
-        org_name=args.org or "",
-        seed_file=args.seed_file,
-        brute_wordlist=args.brute_wordlist,
-        skip_ports=args.skip_ports,
-        skip_http=args.skip_http,
-        skip_enrichment=args.skip_enrichment,
-    )
+    # ── Phase 4: Configure alerting ──────────────────
+    alert_engine = None
+    alert_configs = []
+    from modules.alerting import AlertConfig, AlertEngine
+    if args.alert_slack:
+        alert_configs.append(AlertConfig(
+            channel="slack", slack_webhook_url=args.alert_slack,
+        ))
+    if args.alert_teams:
+        alert_configs.append(AlertConfig(
+            channel="teams", teams_webhook_url=args.alert_teams,
+        ))
+    if args.alert_webhook:
+        alert_configs.append(AlertConfig(
+            channel="webhook", webhook_url=args.alert_webhook,
+        ))
+    if args.alert_email_to:
+        alert_configs.append(AlertConfig(
+            channel="email",
+            email_to=args.alert_email_to,
+            smtp_host=os.environ.get("SMTP_HOST", ""),
+            smtp_port=int(os.environ.get("SMTP_PORT", "587")),
+            smtp_user=os.environ.get("SMTP_USER", ""),
+            smtp_password=os.environ.get("SMTP_PASSWORD", ""),
+            email_from=os.environ.get("SMTP_FROM", ""),
+        ))
+    if alert_configs:
+        alert_engine = AlertEngine(
+            configs=alert_configs, verbose=args.verbose,
+        )
+    else:
+        # Console fallback always available
+        alert_engine = AlertEngine(
+            configs=[AlertConfig(channel="console")],
+            verbose=args.verbose,
+        )
 
-    scanner.print_report(min_severity=args.severity)
+    # ── Run scan (if seeds provided) ─────────────────
+    if any([args.domains, args.ips, args.asn, args.cidr, args.seed_file]):
+        scanner.run(
+            domains=args.domains,
+            ips=args.ips,
+            asns=args.asn,
+            cidrs=args.cidr,
+            org_name=args.org or "",
+            seed_file=args.seed_file,
+            brute_wordlist=args.brute_wordlist,
+            skip_ports=args.skip_ports,
+            skip_http=args.skip_http,
+            skip_enrichment=args.skip_enrichment,
+            skip_vuln_assessment=args.skip_vuln_assessment,
+            skip_nuclei=args.skip_nuclei,
+            skip_cred_test=args.skip_cred_test,
+            nuclei_templates=args.nuclei_templates,
+        )
 
-    if args.json_file:
-        scanner.save_json(args.json_file)
-    if args.html_file:
-        scanner.save_html(args.html_file)
+        scanner.print_report(min_severity=args.severity)
+
+        if args.json_file:
+            scanner.save_json(args.json_file)
+        if args.html_file:
+            scanner.save_html(args.html_file)
+
+        # ── Phase 4: Send alerts on findings ─────────
+        critical_high = [
+            f.to_dict() for f in scanner.findings
+            if f.severity in ("CRITICAL", "HIGH")
+        ]
+        if critical_high and alert_engine:
+            print(f"\n  {BOLD}Sending alerts...{RESET}")
+            alert_results = alert_engine.send_alerts(
+                critical_high, scanner.summary(),
+            )
+            for ar in alert_results:
+                status = "sent" if ar.success else f"FAILED: {ar.error}"
+                print(f"    [{ar.channel}] {status} "
+                      f"({ar.findings_count} findings)")
+
+        # ── Phase 4: SIEM export ─────────────────────
+        from modules.siem_export import SIEMExporter, SIEMConfig
+        finding_dicts = [f.to_dict() for f in scanner.findings]
+        siem_exporter = SIEMExporter(verbose=args.verbose)
+
+        if args.siem_splunk_url:
+            siem_exporter.export(
+                SIEMConfig(
+                    target="splunk_hec",
+                    splunk_url=args.siem_splunk_url,
+                    splunk_token=args.siem_splunk_token or "",
+                ),
+                finding_dicts,
+                scan_summary=scanner.summary(),
+            )
+
+        if args.siem_elastic_url:
+            siem_exporter.export(
+                SIEMConfig(
+                    target="elasticsearch",
+                    es_url=args.siem_elastic_url,
+                ),
+                finding_dicts,
+                scan_summary=scanner.summary(),
+            )
+
+        if args.siem_csv:
+            siem_exporter.export(
+                SIEMConfig(target="csv", output_path=args.siem_csv),
+                finding_dicts,
+                scan_summary=scanner.summary(),
+            )
+
+        if args.siem_jsonl:
+            siem_exporter.export(
+                SIEMConfig(target="jsonl", output_path=args.siem_jsonl),
+                finding_dicts,
+                scan_summary=scanner.summary(),
+            )
+
+        # ── Phase 4: Jira integration ────────────────
+        if args.jira_url and args.jira_project:
+            from modules.jira_integration import (
+                JiraIntegration, JiraConfig,
+            )
+            jira = JiraIntegration(JiraConfig(
+                url=args.jira_url,
+                project_key=args.jira_project,
+                username=args.jira_user or "",
+                api_token=args.jira_token or "",
+            ), verbose=args.verbose)
+            jira_findings = [
+                f.to_dict() for f in scanner.findings
+                if f.severity in ("CRITICAL", "HIGH")
+            ]
+            if jira_findings:
+                print(f"\n  {BOLD}Creating Jira tickets...{RESET}")
+                tickets = jira.create_tickets(jira_findings)
+                created = sum(1 for t in tickets if t.success)
+                print(f"    Created {created}/{len(tickets)} ticket(s)")
+
+    # ── Phase 4: Start API server ────────────────────
+    if args.serve:
+        from api.server import create_app, run_server
+        run_server(scanner=scanner, port=args.port)
+        return 0
+
+    # ── Phase 4: Scheduled scanning ──────────────────
+    if args.schedule > 0:
+        from modules.scheduler import ScanScheduler, ScanProfile
+        scheduler = ScanScheduler(
+            db_path=args.db if args.db != ":memory:" else "easm_scheduler.db",
+            verbose=args.verbose,
+        )
+        profile = ScanProfile(
+            name="cli-schedule",
+            domains=args.domains or [],
+            ips=args.ips or [],
+            asns=args.asn or [],
+            cidrs=args.cidr or [],
+            org_name=args.org or "",
+            interval_minutes=args.schedule,
+            skip_ports=args.skip_ports,
+            skip_http=args.skip_http,
+            skip_enrichment=args.skip_enrichment,
+            skip_vuln_assessment=args.skip_vuln_assessment,
+            skip_nuclei=args.skip_nuclei,
+            skip_cred_test=args.skip_cred_test,
+        )
+
+        def scan_callback(prof):
+            s = EASMScanner(
+                verbose=args.verbose, threads=args.threads,
+                db_path=args.db,
+            )
+            s.run(
+                domains=prof.domains or None,
+                ips=prof.ips or None,
+                asns=prof.asns or None,
+                cidrs=prof.cidrs or None,
+                org_name=prof.org_name,
+                skip_ports=prof.skip_ports,
+                skip_http=prof.skip_http,
+                skip_enrichment=prof.skip_enrichment,
+                skip_vuln_assessment=prof.skip_vuln_assessment,
+                skip_nuclei=prof.skip_nuclei,
+                skip_cred_test=prof.skip_cred_test,
+            )
+            return {
+                "findings": [f.to_dict() for f in s.findings],
+                "assets": [a.to_dict() for a in s.store.get_assets()],
+                "summary": s.summary(),
+            }
+
+        def on_new_findings(findings, summary):
+            if alert_engine:
+                alert_engine.send_alerts(findings, summary)
+
+        print(f"\n  {BOLD}Starting scheduled scans "
+              f"(every {args.schedule} min)...{RESET}")
+        try:
+            scheduler.run_scheduled(
+                profile, scan_callback,
+                on_new_findings=on_new_findings,
+            )
+        except KeyboardInterrupt:
+            print("\n  Scheduled scanning stopped.")
+        return 0
 
     # Exit code: 1 if CRITICAL or HIGH findings
     has_critical = any(

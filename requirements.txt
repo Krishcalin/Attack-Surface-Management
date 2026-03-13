@@ -1,2 +1,12 @@
 requests>=2.31.0
 dnspython>=2.4.0
+
+# Phase 4 -- REST API & Dashboard (optional)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Phase 3 -- Credential testing (optional)
+# paramiko>=3.0.0          # SSH credential testing
+# mysql-connector-python   # MySQL credential testing
+# psycopg2-binary          # PostgreSQL credential testing
+# pymongo>=4.0.0           # MongoDB credential testing
