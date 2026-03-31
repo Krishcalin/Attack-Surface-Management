@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EASM Scanner Report (Demo)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;padding:0}
+.header{background:linear-gradient(135deg,#7c3aed,#2563eb,#0891b2);padding:2rem;text-align:center}
+.header h1{color:#fff;font-size:2rem;margin-bottom:.5rem}
+.header p{color:#e2e8f0;font-size:1rem}
+.container{max-width:1400px;margin:2rem auto;padding:0 1rem}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem}
+.card{background:#1e293b;border-radius:8px;padding:1.2rem;text-align:center}
+.card .num{font-size:2rem;font-weight:700}
+.card .label{color:#94a3b8;font-size:.85rem;margin-top:.3rem}
+table{width:100%;border-collapse:collapse;margin-bottom:2rem;background:#1e293b;border-radius:8px;overflow:hidden}
+th{background:#334155;padding:.75rem;text-align:left;font-size:.85rem;color:#94a3b8}
+td{padding:.65rem .75rem;border-bottom:1px solid #334155;font-size:.85rem}
+tr:hover{background:#334155}
+h2{margin:1.5rem 0 1rem;color:#f1f5f9;font-size:1.3rem}
+.sev{display:inline-block;padding:2px 8px;border-radius:4px;color:#fff;font-weight:600;font-size:.8rem}
+</style>
+</head><body>
+<div class="header">
+<h1>EASM Scanner Report</h1>
+<p>External Attack Surface Management &mdash; v4.0.0 (Demo)</p>
+<p>Scan Date: 2026-03-31T03:17:35 UTC &bull; Target: example-corp.com</p>
+</div>
+<div class="container">
+<div class="summary">
+<div class="card"><div class="num" style="color:#dc2626">4</div><div class="label">Critical</div></div>
+<div class="card"><div class="num" style="color:#ea580c">7</div><div class="label">High</div></div>
+<div class="card"><div class="num" style="color:#ca8a04">7</div><div class="label">Medium</div></div>
+<div class="card"><div class="num" style="color:#0891b2">2</div><div class="label">Low</div></div>
+<div class="card"><div class="num">30</div><div class="label">Assets</div></div>
+<div class="card"><div class="num">20</div><div class="label">Findings</div></div>
+</div>
+
+<h2>Security Findings</h2>
+<table>
+<thead><tr><th>Severity</th><th>Rule ID</th><th>Name</th><th>Category</th><th>Asset</th><th>Description</th><th>Recommendation</th><th>CWE / CVE</th></tr></thead>
+<tbody><tr>
+<td><span class="sev" style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px">CRITICAL</span></td>
+<td><strong>EASM-PORT-001</strong></td>
+<td>Database Port Exposed to Internet</td>
+<td>Exposed Service</td>
+<td>198.51.100.5:3306</td>
+<td>MySQL port 3306 is directly reachable from the internet on dev.example-corp.com. Attackers commonly scan for exposed databases to steal data or deploy...</td>
+<td>Restrict database access to internal networks or VPN. Use firewall rules to deny public access to DB ports....</td>
+<td>CWE-200</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px">CRITICAL</span></td>
+<td><strong>EASM-PORT-007</strong></td>
+<td>Elasticsearch Exposed to Internet</td>
+<td>Exposed Service</td>
+<td>198.51.100.6:9200</td>
+<td>Elasticsearch is publicly accessible without authentication on legacy.example-corp.com. Contains indexed application logs with user data....</td>
+<td>Place Elasticsearch behind a firewall. Enable X-Pack security with authentication. Never expose port 9200 publicly....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px">CRITICAL</span></td>
+<td><strong>EASM-VULN-001</strong></td>
+<td>Critical CVE in Exposed Service</td>
+<td>Vulnerability</td>
+<td>198.51.100.5:8080</td>
+<td>Jenkins 2.346 on dev.example-corp.com is vulnerable to CVE-2024-23897 (arbitrary file read via CLI). CVSS 9.8. Actively exploited in the wild....</td>
+<td>Update Jenkins to the latest LTS version immediately. Restrict access to the Jenkins UI to internal networks....</td>
+<td>CWE-22 / CVE-2024-23897</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px">CRITICAL</span></td>
+<td><strong>EASM-CRED-001</strong></td>
+<td>Default Credentials on Jenkins</td>
+<td>Default Credentials</td>
+<td>http://dev.example-corp.com:8080</td>
+<td>Jenkins is accessible with default credentials admin:admin. Full administrative access to the CI/CD pipeline....</td>
+<td>Change default credentials immediately. Enforce strong passwords. Enable LDAP/SSO integration....</td>
+<td>CWE-798</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-PORT-002</strong></td>
+<td>RDP Exposed to Internet</td>
+<td>Exposed Service</td>
+<td>198.51.100.6:3389</td>
+<td>Remote Desktop Protocol (RDP) is exposed on legacy.example-corp.com. RDP is a top attack vector for ransomware and brute-force attacks....</td>
+<td>Disable public RDP. Use a VPN or Zero-Trust gateway. Enable NLA and strong MFA if RDP must be exposed....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-PORT-005</strong></td>
+<td>VNC Exposed to Internet</td>
+<td>Exposed Service</td>
+<td>198.51.100.6:5900</td>
+<td>VNC is exposed on legacy.example-corp.com; many VNC servers have weak authentication....</td>
+<td>Restrict VNC behind VPN. Enable strong authentication and encryption....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-TLS-001</strong></td>
+<td>TLS Certificate Expired</td>
+<td>TLS/SSL</td>
+<td>legacy.example-corp.com</td>
+<td>The TLS certificate for legacy.example-corp.com expired 45 days ago. Browsers will show security warnings and automated systems may reject connections...</td>
+<td>Renew the TLS certificate immediately. Implement automated certificate management (e.g., Let&#x27;s Encrypt with certbot auto...</td>
+<td>CWE-295</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-TAKEOVER-001</strong></td>
+<td>Subdomain Takeover Risk (Dangling CNAME)</td>
+<td>Subdomain Takeover</td>
+<td>staging.example-corp.com</td>
+<td>staging.example-corp.com has a CNAME pointing to a deprovisioned Heroku app (staging-app-xyz.herokuapp.com). An attacker can claim this endpoint and s...</td>
+<td>Remove the dangling DNS record or re-provision the target service. Monitor for dangling CNAMEs regularly....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-VULN-002</strong></td>
+<td>Outdated Web Server with Known CVEs</td>
+<td>Vulnerability</td>
+<td>https://www.example-corp.com</td>
+<td>nginx/1.24.0 has multiple known vulnerabilities including HTTP/2 rapid reset (CVE-2023-44487)....</td>
+<td>Update nginx to the latest stable version. Apply security patches promptly....</td>
+<td>CWE-1104 / CVE-2023-44487</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-MISCONF-002</strong></td>
+<td>Admin Panel Exposed Without MFA</td>
+<td>Misconfiguration</td>
+<td>https://admin.example-corp.com/login</td>
+<td>The admin panel is internet-accessible with only password authentication. No MFA or IP restriction detected....</td>
+<td>Restrict admin panel to VPN/internal network. Enforce multi-factor authentication. Implement IP whitelisting....</td>
+<td>CWE-308</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:4px">HIGH</span></td>
+<td><strong>EASM-CLOUD-001</strong></td>
+<td>Public S3 Bucket Discovered</td>
+<td>Cloud Exposure</td>
+<td>s3://example-corp-backups</td>
+<td>An S3 bucket named &#x27;example-corp-backups&#x27; is publicly readable, containing database backup files....</td>
+<td>Set the bucket ACL to private. Enable S3 Block Public Access at the account level. Review all bucket policies....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-PORT-004</strong></td>
+<td>FTP Exposed to Internet</td>
+<td>Exposed Service</td>
+<td>198.51.100.6:21</td>
+<td>FTP on legacy.example-corp.com transmits credentials in cleartext and allows anonymous login....</td>
+<td>Replace FTP with SFTP/SCP. Block port 21. Disable anonymous access....</td>
+<td>CWE-319</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-TLS-002</strong></td>
+<td>Weak TLS Protocol (TLSv1.0)</td>
+<td>TLS/SSL</td>
+<td>mail.example-corp.com</td>
+<td>The mail server still supports TLSv1.0, which has known vulnerabilities (BEAST, POODLE). PCI DSS requires TLS 1.2+....</td>
+<td>Disable TLSv1.0 and TLSv1.1. Configure minimum TLS version to 1.2. Prefer TLS 1.3 cipher suites....</td>
+<td>CWE-326</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-TLS-003</strong></td>
+<td>Self-Signed Certificate</td>
+<td>TLS/SSL</td>
+<td>dev.example-corp.com</td>
+<td>The development server uses a self-signed certificate. While acceptable for internal use, public exposure enables MITM attacks....</td>
+<td>Use CA-signed certificates for all internet-facing services. Use Let&#x27;s Encrypt for free automated certificates....</td>
+<td>CWE-295</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-WHOIS-001</strong></td>
+<td>Domain Registration Expiring Soon</td>
+<td>Domain Intelligence</td>
+<td>example-corp.com</td>
+<td>The domain example-corp.com expires in 28 days. If not renewed, an attacker could register it and intercept email/traffic....</td>
+<td>Renew the domain immediately. Enable auto-renewal and domain lock. Set calendar reminders....</td>
+<td>CWE-284</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-MISCONF-001</strong></td>
+<td>Directory Listing Enabled</td>
+<td>Misconfiguration</td>
+<td>https://www.example-corp.com/assets/</td>
+<td>Directory listing is enabled on /assets/, exposing internal file structure and potentially sensitive files....</td>
+<td>Disable directory listing in the web server configuration (autoindex off for nginx)....</td>
+<td>CWE-548</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-DNS-001</strong></td>
+<td>SPF Record Missing</td>
+<td>DNS Security</td>
+<td>example-corp.com</td>
+<td>No SPF record found for example-corp.com. Attackers can spoof emails from this domain....</td>
+<td>Add an SPF TXT record: v=spf1 include:_spf.google.com ~all (adjust for your email provider)....</td>
+<td>CWE-290</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#ca8a04;color:#fff;padding:2px 8px;border-radius:4px">MEDIUM</span></td>
+<td><strong>EASM-TECH-001</strong></td>
+<td>End-of-Life Software Detected</td>
+<td>Technology</td>
+<td>198.51.100.5</td>
+<td>MySQL 5.7.38 on dev.example-corp.com reached end-of-life in October 2023. No security patches are available....</td>
+<td>Upgrade to MySQL 8.0 LTS or migrate to a supported database version....</td>
+<td>CWE-1104</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#0891b2;color:#fff;padding:2px 8px;border-radius:4px">LOW</span></td>
+<td><strong>EASM-DNS-002</strong></td>
+<td>DMARC Not Enforced</td>
+<td>DNS Security</td>
+<td>example-corp.com</td>
+<td>DMARC policy is set to &#x27;none&#x27;, providing monitoring only. Spoofed emails will still be delivered....</td>
+<td>Gradually increase DMARC policy: p=none -&gt; p=quarantine -&gt; p=reject. Monitor DMARC reports....</td>
+<td>CWE-290</td>
+</tr>
+<tr>
+<td><span class="sev" style="background:#0891b2;color:#fff;padding:2px 8px;border-radius:4px">LOW</span></td>
+<td><strong>EASM-INFO-001</strong></td>
+<td>Sensitive Endpoints Exposed in robots.txt</td>
+<td>Information Disclosure</td>
+<td>https://www.example-corp.com/robots.txt</td>
+<td>robots.txt reveals paths to admin interfaces, internal APIs, and backup directories....</td>
+<td>Remove sensitive paths from robots.txt. Use authentication and authorization instead of obscurity....</td>
+<td>CWE-200</td>
+</tr>
+</tbody>
+</table>
+
+<h2>Discovered Assets</h2>
+<table>
+<thead><tr><th>Type</th><th>Value</th><th>Parent</th><th>Sources</th><th>Attributes</th></tr></thead>
+<tbody><tr>
+<td>domain</td>
+<td>example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>www.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;cname&#x27;: &#x27;cdn.example-corp.com&#x27;}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>api.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;cname&#x27;: &#x27;api-gw.example-corp.com&#x27;}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>mail.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;mx&#x27;: True}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>dev.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;environment&#x27;: &#x27;development&#x27;}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>staging.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;environment&#x27;: &#x27;staging&#x27;}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>admin.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;admin_panel&#x27;: True}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>vpn.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;vpn&#x27;}</td>
+</tr>
+<tr>
+<td>domain</td>
+<td>legacy.example-corp.com</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;deprecated&#x27;: True}</td>
+</tr>
+<tr>
+<td>ip</td>
+<td>203.0.113.10</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;ptr&#x27;: &#x27;www.example-corp.com&#x27;, &#x27;asn&#x27;: &#x27;AS13335&#x27;}</td>
+</tr>
+<tr>
+<td>ip</td>
+<td>203.0.113.11</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;ptr&#x27;: &#x27;api.example-corp.com&#x27;, &#x27;asn&#x27;: &#x27;AS13335&#x27;}</td>
+</tr>
+<tr>
+<td>ip</td>
+<td>203.0.113.20</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;ptr&#x27;: &#x27;mail.example-corp.com&#x27;, &#x27;asn&#x27;: &#x27;AS16509&#x27;}</td>
+</tr>
+<tr>
+<td>ip</td>
+<td>198.51.100.5</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;ptr&#x27;: &#x27;dev.example-corp.com&#x27;, &#x27;asn&#x27;: &#x27;AS14618&#x27;}</td>
+</tr>
+<tr>
+<td>ip</td>
+<td>198.51.100.6</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;ptr&#x27;: &#x27;legacy.example-corp.com&#x27;, &#x27;asn&#x27;: &#x27;AS14618&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>80</td>
+<td>203.0.113.10</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;http&#x27;, &#x27;banner&#x27;: &#x27;nginx/1.24.0&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>443</td>
+<td>203.0.113.10</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;https&#x27;, &#x27;banner&#x27;: &#x27;nginx/1.24.0&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>443</td>
+<td>203.0.113.11</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;https&#x27;, &#x27;banner&#x27;: &#x27;envoy&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>25</td>
+<td>203.0.113.20</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;smtp&#x27;, &#x27;banner&#x27;: &#x27;Postfix&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>443</td>
+<td>203.0.113.20</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;https&#x27;, &#x27;banner&#x27;: &#x27;Microsoft-IIS/10.0&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>22</td>
+<td>198.51.100.5</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;ssh&#x27;, &#x27;banner&#x27;: &#x27;OpenSSH_8.9&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>8080</td>
+<td>198.51.100.5</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;http-alt&#x27;, &#x27;banner&#x27;: &#x27;Jetty/9.4.44&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>3306</td>
+<td>198.51.100.5</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;mysql&#x27;, &#x27;banner&#x27;: &#x27;MySQL 5.7.38&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>3389</td>
+<td>198.51.100.6</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;rdp&#x27;, &#x27;banner&#x27;: &#x27;Microsoft Terminal Services&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>21</td>
+<td>198.51.100.6</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;ftp&#x27;, &#x27;banner&#x27;: &#x27;vsFTPd 3.0.3&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>5900</td>
+<td>198.51.100.6</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;vnc&#x27;, &#x27;banner&#x27;: &#x27;RFB 003.008&#x27;}</td>
+</tr>
+<tr>
+<td>port</td>
+<td>9200</td>
+<td>198.51.100.6</td>
+<td>demo</td>
+<td>{&#x27;service&#x27;: &#x27;elasticsearch&#x27;, &#x27;banner&#x27;: &#x27;Elasticsearch 7.10.2&#x27;}</td>
+</tr>
+<tr>
+<td>url</td>
+<td>https://www.example-corp.com/</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;status&#x27;: 200, &#x27;title&#x27;: &#x27;Example Corp&#x27;, &#x27;tech&#x27;: [&#x27;nginx&#x27;, &#x27;React&#x27;]}</td>
+</tr>
+<tr>
+<td>url</td>
+<td>https://api.example-corp.com/v1/docs</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;status&#x27;: 200, &#x27;title&#x27;: &#x27;API Docs&#x27;, &#x27;tech&#x27;: [&#x27;envoy&#x27;, &#x27;FastAPI&#x27;]}</td>
+</tr>
+<tr>
+<td>url</td>
+<td>https://admin.example-corp.com/login</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;status&#x27;: 200, &#x27;title&#x27;: &#x27;Admin Login&#x27;, &#x27;tech&#x27;: [&#x27;IIS&#x27;, &#x27;ASP.NET&#x27;]}</td>
+</tr>
+<tr>
+<td>url</td>
+<td>http://dev.example-corp.com:8080/</td>
+<td></td>
+<td>demo</td>
+<td>{&#x27;status&#x27;: 200, &#x27;title&#x27;: &#x27;Jenkins&#x27;, &#x27;tech&#x27;: [&#x27;Jetty&#x27;, &#x27;Jenkins&#x27;]}</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body></html>
