@@ -355,6 +355,48 @@ class ScanScheduler:
         conn.close()
         return history
 
+    def trend_points(
+        self,
+        profile_name: str,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Chronological (oldest->newest) metric points for trend analysis.
+        Parses summary_json for medium/low/info severity and risk avg/max."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute("""
+            SELECT scan_time, total_assets, total_findings,
+                   critical_count, high_count, summary_json
+            FROM scan_history
+            WHERE profile_name = ?
+            ORDER BY scan_time ASC
+            LIMIT ?
+        """, (profile_name, limit))
+        points: list[dict] = []
+        for row in c.fetchall():
+            point = {
+                "scan_time": row[0],
+                "total_assets": row[1] or 0,
+                "total_findings": row[2] or 0,
+                "critical": row[3] or 0,
+                "high": row[4] or 0,
+            }
+            try:
+                summary = json.loads(row[5]) if row[5] else {}
+            except (ValueError, TypeError):
+                summary = {}
+            findings = summary.get("findings", {}) or {}
+            for sev in ("MEDIUM", "LOW", "INFO"):
+                point[sev.lower()] = findings.get(sev, 0)
+            risk = summary.get("risk", {}) or {}
+            if "avg_score" in risk:
+                point["risk_avg"] = risk.get("avg_score", 0)
+            if "max_score" in risk:
+                point["risk_max"] = risk.get("max_score", 0)
+            points.append(point)
+        conn.close()
+        return points
+
     def run_scheduled(
         self,
         profile: ScanProfile,

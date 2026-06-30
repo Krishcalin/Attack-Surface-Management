@@ -1371,6 +1371,7 @@ class EASMScanner:
             "intelligence": {
                 "related_assets_discovered": len(self.discovered_assets),
             },
+            "risk": self.risk_scorer.aggregate_stats(self.risk_scores),
             "graph": graph_stats,
         }
 
@@ -1856,6 +1857,16 @@ examples:
              "favicon-hash, asn-org. Live pivots need their API key "
              "(VIEWDNS_API_KEY / SHODAN_API_KEY) where applicable",
     )
+    # Trend-over-time options
+    parser.add_argument(
+        "--trends", action="store_true",
+        help="Record this scan to history and print attack-surface trends "
+             "(footprint reduction over time)",
+    )
+    parser.add_argument(
+        "--history-db", metavar="FILE", default="easm_history.db",
+        help="SQLite history DB for trend tracking (default: easm_history.db)",
+    )
     # Phase 4 options
     parser.add_argument(
         "--serve", action="store_true",
@@ -2011,6 +2022,22 @@ examples:
         )
 
         scanner.print_report(min_severity=args.severity)
+
+        # ── Trend-over-time: record this scan, then show the trend ──
+        if args.trends:
+            from modules.scheduler import ScanScheduler
+            from modules.trends import compute_trends, render_console
+            sched = ScanScheduler(db_path=args.history_db, verbose=args.verbose)
+            sched.record_scan(
+                profile_name="cli",
+                findings=[f.to_dict() for f in scanner.findings],
+                assets=[a.to_dict() for a in scanner.store.get_assets()],
+                summary=scanner.summary(),
+                duration=scanner.end_time - scanner.start_time,
+            )
+            report = compute_trends(sched.trend_points("cli"))
+            print(f"\n{BOLD}=== Attack-Surface Trends ==={RESET}")
+            print(render_console(report))
 
         if args.json_file:
             scanner.save_json(args.json_file)

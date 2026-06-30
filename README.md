@@ -122,6 +122,7 @@ pivoting from your seeds, across five complementary methods:
 - **SIEM Export** — Splunk HEC (batched), Elasticsearch (bulk API), Syslog CEF (UDP/TCP), CSV, JSON Lines
 - **Jira Integration** — Cloud/Server REST API v2, severity-to-priority mapping, JQL deduplication, dry-run mode
 - **Scan Scheduling** — SQLite-backed history with finding/asset diff detection and alert triggers
+- **Risk Trend-Over-Time** — tracks attack-surface metrics across scans and reports footprint reduction (CRITICAL+HIGH exposure %, per-metric direction + ASCII sparklines)
 
 ---
 
@@ -365,6 +366,21 @@ python easm_scanner.py -d example.com --schedule 60 \
 ```
 
 The scheduler uses SQLite to track scan history and computes diffs between runs, identifying new, resolved and unchanged findings.
+
+### Risk Trend-Over-Time
+
+```bash
+# Record each scan to history and print attack-surface trends
+python easm_scanner.py -d example.com --trends
+
+# Use a specific history DB
+python easm_scanner.py -d example.com --trends --history-db acme-history.db
+```
+
+After two or more recorded scans, the report shows the change in each metric
+(findings, severity counts, risk avg/max) with ASCII sparklines and the overall
+**attack-surface exposure reduction %** (CRITICAL+HIGH) — the "is our footprint
+shrinking?" view.
 
 ### Alerting
 
@@ -670,7 +686,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 49 tests
+python -m pytest tests/ -q        # 57 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13
