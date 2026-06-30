@@ -54,6 +54,7 @@ from modules.geoip_enrichment import GeoIPEnrichment
 from modules.screenshot_capture import ScreenshotCapture
 from modules.attribution_engine import AttributionEngine
 from modules.asset_graph import AssetGraph
+from modules.intel_discovery import IntelDiscovery
 
 # Phase 3 modules
 from modules.subdomain_takeover import SubdomainTakeoverDetector
@@ -386,6 +387,11 @@ class EASMScanner:
         )
         self.attrib_engine: Optional[AttributionEngine] = None
         self.graph = AssetGraph()
+        # Attack Surface Intelligence: unknown-asset discovery (reuses CT + WHOIS)
+        self.intel = IntelDiscovery(
+            verbose=verbose, ct_monitor=self.ct_monitor, whois=self.whois,
+        )
+        self.discovered_assets: list = []
 
         # Phase 2 result caches
         self.whois_records: dict = {}
@@ -434,6 +440,9 @@ class EASMScanner:
         skip_nuclei: bool = False,
         skip_cred_test: bool = False,
         nuclei_templates: Optional[str] = None,
+        discover_related: bool = False,
+        intel_min_confidence: float = 0.50,
+        intel_expand: bool = False,
     ) -> None:
         """Execute the full Phase 1 + 2 + 3 pipeline."""
 
@@ -478,6 +487,51 @@ class EASMScanner:
             seed_domains=list(seeds.domains),
             verbose=self.verbose,
         )
+
+        # ── Intelligence: unknown-asset discovery (optional) ──
+        # Pivot from seeds to find related apex domains the org also owns
+        # (cert-SAN + WHOIS). Passive; results are inventoried always and only
+        # pulled into the active scan when --intel-expand is set.
+        if discover_related and seeds.domains:
+            self._phase("Intel", "Unknown-Asset Discovery (cert-SAN pivot)")
+            self.intel.min_confidence = intel_min_confidence
+            self.discovered_assets = self.intel.discover(
+                list(seeds.domains), org_name=org_name,
+            )
+            for da in self.discovered_assets:
+                self.store.upsert_asset(self.intel.to_assets([da])[0])
+                self._add_finding(Finding(
+                    rule_id="EASM-INTEL-001",
+                    name="Unknown Related Asset Discovered",
+                    category="Attack Surface Intelligence",
+                    severity="INFO",
+                    asset_value=da.apex,
+                    asset_type="domain",
+                    description=(
+                        f"Apex domain linked to your seeds via "
+                        f"{da.method} (confidence {da.confidence_label} "
+                        f"{da.confidence:.2f}): " + "; ".join(da.reasons)
+                    ),
+                    recommendation=(
+                        "Confirm ownership; if org-owned, add it to scope and "
+                        "monitor it. If not, investigate why it shares "
+                        "infrastructure with your assets."
+                    ),
+                    evidence=(f"registrant={da.registrant_org}"
+                              if da.registrant_org else ""),
+                ))
+            print(f"  Discovered {len(self.discovered_assets)} related apex "
+                  f"domain(s) (confidence >= {intel_min_confidence})")
+            for da in self.discovered_assets:
+                org = f"  ({da.registrant_org})" if da.registrant_org else ""
+                print(f"    [{da.confidence_label} {da.confidence:.2f}] "
+                      f"{da.apex}{org}")
+            if intel_expand and self.discovered_assets:
+                added = sum(
+                    1 for da in self.discovered_assets
+                    if self.seed_mgr.add_domain(da.apex)
+                )
+                print(f"  Added {added} discovered apex(es) to scan scope")
 
         # ── Step 2: ASN expansion ──────────────────────────
         if seeds.asns:
@@ -1306,6 +1360,9 @@ class EASMScanner:
             "total_findings": len(self.findings),
             "enrichment": enrichment,
             "vuln_assessment": vuln_assessment,
+            "intelligence": {
+                "related_assets_discovered": len(self.discovered_assets),
+            },
             "graph": graph_stats,
         }
 
@@ -1769,6 +1826,21 @@ examples:
         "--nuclei-templates", metavar="DIR",
         help="Custom Nuclei templates directory",
     )
+    # Attack Surface Intelligence options
+    parser.add_argument(
+        "--discover-related", action="store_true",
+        help="Discover unknown related apex domains from seeds "
+             "(cert-SAN pivot + WHOIS); inventoried as assets",
+    )
+    parser.add_argument(
+        "--intel-min-confidence", type=float, default=0.50, metavar="0.0-1.0",
+        help="Minimum confidence to report a discovered apex (default: 0.50)",
+    )
+    parser.add_argument(
+        "--intel-expand", action="store_true",
+        help="Add discovered apex domains to the scan scope (full assessment). "
+             "Use with --discover-related; expands scope, so opt-in",
+    )
     # Phase 4 options
     parser.add_argument(
         "--serve", action="store_true",
@@ -1914,6 +1986,9 @@ examples:
             skip_nuclei=args.skip_nuclei,
             skip_cred_test=args.skip_cred_test,
             nuclei_templates=args.nuclei_templates,
+            discover_related=args.discover_related,
+            intel_min_confidence=args.intel_min_confidence,
+            intel_expand=args.intel_expand,
         )
 
         scanner.print_report(min_severity=args.severity)

@@ -35,3 +35,15 @@ def test_all_pipeline_modules_import():
 def test_severity_order_constant():
     from models.finding import SEVERITY_ORDER
     assert SEVERITY_ORDER["CRITICAL"] < SEVERITY_ORDER["INFO"]
+
+
+def test_orchestrator_wires_intel_discovery(tmp_path):
+    # EASMScanner exposes the intel engine and the summary carries the
+    # intelligence block (network-free: just construction + summary).
+    s = easm_scanner.EASMScanner(db_path=":memory:",
+                                 screenshot_dir=str(tmp_path / "shots"))
+    from modules.intel_discovery import IntelDiscovery
+    assert isinstance(s.intel, IntelDiscovery)
+    assert s.discovered_assets == []
+    summ = s.summary()
+    assert summ["intelligence"]["related_assets_discovered"] == 0

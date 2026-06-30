@@ -303,18 +303,28 @@ python easm_scanner.py -d example.com --siem-jsonl findings.jsonl  # JSONL expor
 
 ### Unknown-Asset Discovery (Intelligence)
 
-Pivot from known seeds to discover related apex domains the org also owns:
+Pivot from known seeds to discover related apex domains the org also owns
+(certificate-SAN pivot + WHOIS corroboration).
 
 ```bash
-# Discover unknown related apex domains for a seed (cert-SAN + WHOIS)
-python modules/intel_discovery.py example.com --org "ACME Corp" -v
+# As part of a full scan: discover + inventory related apex domains
+python easm_scanner.py -d example.com --org "ACME Corp" --discover-related
+
+# Also pull the discovered domains into the active scan (expands scope)
+python easm_scanner.py -d example.com --org "ACME Corp" --discover-related --intel-expand
 
 # Only report higher-confidence candidates
-python modules/intel_discovery.py example.com --org "ACME Corp" --min-confidence 0.7
+python easm_scanner.py -d example.com --discover-related --intel-min-confidence 0.7
+
+# Standalone (discovery only, no full scan)
+python modules/intel_discovery.py example.com --org "ACME Corp" -v
 ```
 
-Each result lists a confidence band (HIGH/MEDIUM/LOW), the registrant
-organisation, and the reasons it was linked to your seeds.
+Discovered apexes are added to the asset inventory (source `intel:cert-san-pivot`)
+and recorded as `EASM-INTEL-001` (INFO) findings with a confidence band
+(HIGH/MEDIUM/LOW), the registrant organisation, and the reasons they were linked
+to your seeds. By default they are **inventoried only**; `--intel-expand` adds
+them to the active scan scope.
 
 ### REST API & Dashboard
 
@@ -648,7 +658,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 45 tests
+python -m pytest tests/ -q        # 46 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13
