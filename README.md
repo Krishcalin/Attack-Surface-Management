@@ -89,6 +89,17 @@ pivoting from your seeds, across five complementary methods:
 - **Shared-infrastructure filtering** — CDN/cloud/SaaS apexes (Cloudflare, AWS, Heroku, ...) and WHOIS-privacy emails are excluded to suppress false positives
 - **Passive & benign** — reads only public CT / WHOIS / passive-DNS / Shodan data; never scans the candidate hosts
 
+### Threat-Intelligence Enrichment
+Cross-references the **discovered attack surface** against free / community
+threat-intel feeds — answering *"is any of my own asset already known-bad?"*:
+- **abuse.ch Feodo Tracker** — owned IPs that are known botnet C2 servers
+- **abuse.ch ThreatFox** — owned IPs/domains that are active malware IOCs (with family)
+- **abuse.ch URLhaus** — owned hosts serving known malware URLs
+- **FireHOL level1** — owned IPs in aggregated malicious ranges
+- **Spamhaus DROP** — owned IPs in hijacked/criminal netblocks
+- **Tor exit nodes** — owned IPs acting as Tor exits
+- **No API keys required**; matched locally, passive (never contacts the flagged hosts); results become `EASM-TI-*` findings that feed risk scoring
+
 ### Discovery & Reconnaissance
 - Subdomain enumeration (crt.sh, subfinder, DNS brute-force)
 - Certificate Transparency log monitoring
@@ -305,6 +316,21 @@ python easm_scanner.py -d example.com --html report.html       # HTML report
 python easm_scanner.py -d example.com --siem-csv findings.csv  # CSV export
 python easm_scanner.py -d example.com --siem-jsonl findings.jsonl  # JSONL export
 ```
+
+### Threat-Intelligence Enrichment
+
+Flag any owned IP/domain that already appears in free threat-intel feeds:
+
+```bash
+# Enrich the discovered surface against threat-intel feeds (no API key)
+python easm_scanner.py -d example.com --threat-intel
+
+# Standalone IOC check
+python modules/threat_intel.py --ip 203.0.113.10 --domain bad.example.net -v
+```
+
+Matches are recorded as `EASM-TI-*` findings (botnet C2, malware IOC, malware-URL
+host, malicious/hijacked netblock, Tor exit) and flow into risk scoring.
 
 ### Unknown-Asset Discovery (Intelligence)
 
@@ -534,6 +560,17 @@ Tickets include structured descriptions with rule ID, severity, asset, evidence 
 | EASM-DNS-001..006 | DNS Security Issues | MEDIUM-HIGH |
 | EASM-NUCLEI-* | Dynamic Nuclei Template Matches | Varies |
 
+### Threat Intelligence (`EASM-TI-*`)
+
+| Rule ID | Name | Severity |
+|---------|------|----------|
+| EASM-TI-001 | Asset IP on botnet C2 blocklist (Feodo Tracker) | CRITICAL |
+| EASM-TI-002 | Asset is an active malware IOC (ThreatFox) | CRITICAL |
+| EASM-TI-003 | Asset hosts a known malware URL (URLhaus) | HIGH |
+| EASM-TI-004 | Asset IP in a known-malicious network (FireHOL) | HIGH |
+| EASM-TI-005 | Asset IP in a hijacked/criminal netblock (Spamhaus DROP) | HIGH |
+| EASM-TI-006 | Asset IP is a Tor exit node | MEDIUM |
+
 ---
 
 ## Risk Scoring
@@ -688,7 +725,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 60 tests
+python -m pytest tests/ -q        # 72 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13

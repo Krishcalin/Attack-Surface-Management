@@ -55,6 +55,7 @@ from modules.screenshot_capture import ScreenshotCapture
 from modules.attribution_engine import AttributionEngine
 from modules.asset_graph import AssetGraph
 from modules.intel_discovery import IntelDiscovery
+from modules.threat_intel import ThreatIntel
 
 # Phase 3 modules
 from modules.subdomain_takeover import SubdomainTakeoverDetector
@@ -392,6 +393,9 @@ class EASMScanner:
             verbose=verbose, ct_monitor=self.ct_monitor, whois=self.whois,
         )
         self.discovered_assets: list = []
+        # Threat-intelligence IOC enrichment (free reputation/IOC feeds)
+        self.ti = ThreatIntel(verbose=verbose)
+        self.ti_matches: list = []
 
         # Phase 2 result caches
         self.whois_records: dict = {}
@@ -444,6 +448,7 @@ class EASMScanner:
         intel_min_confidence: float = 0.50,
         intel_expand: bool = False,
         intel_pivots: Optional[list[str]] = None,
+        threat_intel: bool = False,
     ) -> None:
         """Execute the full Phase 1 + 2 + 3 pipeline."""
 
@@ -1153,6 +1158,23 @@ class EASMScanner:
         print(f"  Default creds found: {cred_found}")
         print(f"  DNS security findings: {dns_findings}")
 
+        # ── Threat-Intelligence enrichment (optional) ──
+        # Cross-reference the discovered surface against free reputation/IOC
+        # feeds: is any owned IP/domain already known-bad? Findings flow into
+        # risk scoring below. Passive; off unless --threat-intel.
+        if threat_intel:
+            self._phase("Threat Intel", "Threat-Intelligence IOC Enrichment")
+            self.ti_matches = self.ti.check_assets(
+                self.store.all_ips(), self.store.all_domains(),
+            )
+            for finding in self.ti.to_findings(self.ti_matches):
+                self._add_finding(finding)
+            by_src = Counter(m.source for m in self.ti_matches)
+            extra = (": " + ", ".join(f"{n} {s}" for s, n in by_src.items())
+                     if by_src else "")
+            print(f"  {len(self.ti_matches)} asset(s) matched threat-intel "
+                  f"feeds{extra}")
+
         # ── Step 14: Risk Scoring ────────────────────────────
         self._phase(f"Step 14/{N}", "Risk Scoring & Prioritisation")
 
@@ -1370,6 +1392,10 @@ class EASMScanner:
             "vuln_assessment": vuln_assessment,
             "intelligence": {
                 "related_assets_discovered": len(self.discovered_assets),
+            },
+            "threat_intel": {
+                "matches": len(self.ti_matches),
+                "by_source": dict(Counter(m.source for m in self.ti_matches)),
             },
             "risk": self.risk_scorer.aggregate_stats(self.risk_scores),
             "graph": graph_stats,
@@ -1857,6 +1883,11 @@ examples:
              "favicon-hash, asn-org. Live pivots need their API key "
              "(VIEWDNS_API_KEY / SHODAN_API_KEY) where applicable",
     )
+    parser.add_argument(
+        "--threat-intel", action="store_true",
+        help="Cross-reference discovered IPs/domains against free threat-intel "
+             "feeds (abuse.ch, FireHOL, Spamhaus, Tor); flags known-bad assets",
+    )
     # Trend-over-time options
     parser.add_argument(
         "--trends", action="store_true",
@@ -2019,6 +2050,7 @@ examples:
                 [s.strip() for s in args.intel_pivots.split(",") if s.strip()]
                 if args.intel_pivots else None
             ),
+            threat_intel=args.threat_intel,
         )
 
         scanner.print_report(min_severity=args.severity)

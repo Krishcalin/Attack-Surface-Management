@@ -27,6 +27,7 @@ def test_all_pipeline_modules_import():
         "modules.default_creds", "modules.dns_security", "modules.cloud_enum",
         "modules.risk_scorer", "modules.alerting", "modules.siem_export",
         "modules.jira_integration", "modules.scheduler",
+        "modules.intel_discovery", "modules.threat_intel", "modules.trends",
     ]
     for m in mods:
         assert importlib.import_module(m) is not None
@@ -45,5 +46,8 @@ def test_orchestrator_wires_intel_discovery(tmp_path):
     from modules.intel_discovery import IntelDiscovery
     assert isinstance(s.intel, IntelDiscovery)
     assert s.discovered_assets == []
+    from modules.threat_intel import ThreatIntel
+    assert isinstance(s.ti, ThreatIntel) and s.ti_matches == []
     summ = s.summary()
     assert summ["intelligence"]["related_assets_discovered"] == 0
+    assert summ["threat_intel"]["matches"] == 0
