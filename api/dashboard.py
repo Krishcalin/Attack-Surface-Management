@@ -74,6 +74,8 @@ class DashboardRenderer:
         # Asset counts
         asset_counts = summary.get("assets", {})
 
+        discovered = getattr(scanner, "discovered_assets", []) or []
+
         return {
             "summary": summary,
             "severity_distribution": sev_dist,
@@ -83,6 +85,10 @@ class DashboardRenderer:
             "asset_counts": asset_counts,
             "enrichment": summary.get("enrichment", {}),
             "vuln_assessment": summary.get("vuln_assessment", {}),
+            "intelligence": {
+                "count": len(discovered),
+                "discovered": [d.to_dict() for d in discovered],
+            },
         }
 
     @staticmethod

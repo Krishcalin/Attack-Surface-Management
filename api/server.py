@@ -290,6 +290,18 @@ def create_app(scanner: Any = None) -> "FastAPI":
             "scores": [s.to_dict() for s in scores[:limit]],
         }
 
+    # ── Attack Surface Intelligence ───────────────────────────
+
+    @app.get("/api/intelligence")
+    def get_intelligence() -> dict:
+        if not state["scanner"]:
+            raise HTTPException(500, "Scanner not initialised")
+        discovered = getattr(state["scanner"], "discovered_assets", []) or []
+        return {
+            "count": len(discovered),
+            "discovered": [d.to_dict() for d in discovered],
+        }
+
     # ── Asset Graph ───────────────────────────────────────────
 
     @app.get("/api/graph")

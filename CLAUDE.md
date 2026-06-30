@@ -77,7 +77,7 @@ modules/
   scheduler.py               # SQLite-backed scan scheduling with diff detection; trend_points() loads metric history
   trends.py                  # Risk trend-over-time: compute_trends() (pure) + ASCII render; exposure-reduction %. Wired via --trends/--history-db (records each scan, prints footprint trend)
 api/
-  server.py                  # FastAPI REST API server (14 endpoints)
+  server.py                  # FastAPI REST API server (15 endpoints)
   dashboard.py               # Dashboard data renderer
 templates/
   dashboard.html             # Interactive single-page dashboard (dark theme, charts, filters)
@@ -89,7 +89,7 @@ wordlists/
 
 ## Testing & CI
 
-- `pytest` suite in `tests/` (57 tests, no network): `python -m pytest tests/ -q`.
+- `pytest` suite in `tests/` (60 tests, no network): `python -m pytest tests/ -q`.
   - `test_models.py` — Asset/Finding dataclasses (ids, timestamps, round-trip, equality/rank).
   - `test_seed_manager.py` — seed parse/validate/classify, CIDR expansion + /16 cap, file load.
   - `test_asset_store.py` — SQLite upsert/merge, filters, findings CRUD (in-memory).
@@ -97,6 +97,7 @@ wordlists/
   - `test_smoke.py` — imports every pipeline module + version (catches import/syntax drift).
   - `test_intel_discovery.py` — ASI unknown-asset discovery: pure helpers + method-aware scoring + multi-pivot injected-I/O integration.
   - `test_trends.py` — risk trend-over-time: compute_trends direction/exposure-reduction/sparkline + scheduler.trend_points loader.
+  - `test_dashboard.py` — dashboard Intelligence payload (`_build_scan_data`) + render() carries the intel nav/page + injected data.
   - `tests/conftest.py` puts the repo root on `sys.path`.
 - CI: `.github/workflows/tests.yml` — matrix Python 3.10-3.13, `pip install -r requirements.txt`,
   byte-compile, pytest, and a `python easm_scanner.py --help` smoke test.
@@ -161,6 +162,7 @@ Formula: `Risk = (Severity x 0.40) + (Criticality x 0.35) + (Exploitability x 0.
 | GET | `/api/assets` | Asset inventory (filterable) |
 | GET | `/api/findings` | Security findings (filterable) |
 | GET | `/api/risk-scores` | Risk score data |
+| GET | `/api/intelligence` | Unknown related assets discovered |
 | GET | `/api/graph` | Asset relationship graph |
 | GET | `/api/export/{fmt}` | Export (json/csv/jsonl) |
 | POST | `/api/alerts/test` | Send test alert |

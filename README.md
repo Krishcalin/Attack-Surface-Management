@@ -116,7 +116,7 @@ pivoting from your seeds, across five complementary methods:
 - **Risk Scoring** — Multi-factor scoring engine with 5 auto-escalation rules
 
 ### Reporting & Integration
-- **REST API** — 14 FastAPI endpoints for programmatic access
+- **REST API** — 15 FastAPI endpoints for programmatic access
 - **Interactive Dashboard** — Dark-themed SPA with severity charts, asset inventory, risk scores, scan launcher
 - **Multi-Channel Alerting** — Email (SMTP/TLS), Slack (Block Kit), Microsoft Teams (MessageCard), generic webhooks, console
 - **SIEM Export** — Splunk HEC (batched), Elasticsearch (bulk API), Syslog CEF (UDP/TCP), CSV, JSON Lines
@@ -198,7 +198,7 @@ modules/
   scheduler.py                   SQLite-backed scan scheduling with diff detection
 
 api/
-  server.py                      FastAPI REST API server (14 endpoints)
+  server.py                      FastAPI REST API server (15 endpoints)
   dashboard.py                   Dashboard data renderer
 
 templates/
@@ -472,7 +472,7 @@ Tickets include structured descriptions with rule ID, severity, asset, evidence 
 
 | Module | Description |
 |--------|-------------|
-| `api/server.py` | FastAPI REST API with 14 endpoints for scan management, queries and export |
+| `api/server.py` | FastAPI REST API with 15 endpoints for scan management, queries and export |
 | `api/dashboard.py` | Dashboard data renderer with scan data injection |
 | `templates/dashboard.html` | Interactive SPA: overview, findings, assets, risk scores, scan launcher |
 | `alerting.py` | Multi-channel alerting (Email, Slack, Teams, Webhook, Console) |
@@ -586,6 +586,7 @@ Risk Score = (Severity x 0.40) + (Asset Criticality x 0.35)
 | `GET` | `/api/assets` | Asset inventory with type/search filtering and pagination |
 | `GET` | `/api/findings` | Security findings with severity/category/search filters |
 | `GET` | `/api/risk-scores` | Risk scores with aggregate statistics |
+| `GET` | `/api/intelligence` | Unknown related assets discovered (count + details) |
 | `GET` | `/api/graph` | Asset relationship graph (adjacency list) |
 | `GET` | `/api/export/json` | Export findings as JSON |
 | `GET` | `/api/export/csv` | Export findings as CSV |
@@ -614,6 +615,7 @@ The interactive dashboard is a dark-themed single-page application served at the
 | **Findings** | Full findings table with search, severity filter, category filter, JSON/CSV export buttons |
 | **Assets** | Asset inventory with type filter and search, pagination |
 | **Risk Scores** | Risk score table with aggregate stat cards, min-score slider filter, escalation indicators |
+| **Intelligence** | Unknown-asset discovery table (confidence, asset, type, pivots, registrant, reasons); a "Related (Intel)" badge on the Overview |
 | **New Scan** | Scan launch form (domains, IPs, ASNs, org, skip checkboxes), scan history table |
 
 The dashboard automatically polls scan status and updates when a scan completes. It also supports **offline mode** with statically injected data for HTML report sharing.
@@ -686,7 +688,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 57 tests
+python -m pytest tests/ -q        # 60 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13

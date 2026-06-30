@@ -247,6 +247,7 @@
     <a href="#" data-page="findings">Findings</a>
     <a href="#" data-page="assets">Assets</a>
     <a href="#" data-page="risk">Risk Scores</a>
+    <a href="#" data-page="intel">Intelligence</a>
     <a href="#" data-page="scan">New Scan</a>
   </div>
   <div class="status">
@@ -279,6 +280,8 @@
         <div class="label">High</div></div>
       <div class="stat-card medium"><div class="value" id="s-medium">--</div>
         <div class="label">Medium</div></div>
+      <div class="stat-card"><div class="value" id="s-intel" style="color:var(--accent)">--</div>
+        <div class="label">Related (Intel)</div></div>
     </div>
 
     <div class="chart-grid">
@@ -413,6 +416,28 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
+  <!--  Intelligence Page                              -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="page" id="page-intel">
+    <div class="section">
+      <h2>Attack Surface Intelligence &mdash; Unknown Assets Discovered</h2>
+      <p style="color:var(--text-dim);font-size:13px;margin:4px 0 12px">
+        Related assets found by pivoting from your seeds (cert-SAN, reverse-WHOIS,
+        passive-DNS, favicon, ASN&rarr;org). Confirm ownership before trusting.
+      </p>
+      <div style="max-height:600px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr><th>Confidence</th><th>Asset</th><th>Type</th>
+                <th>Methods</th><th>Registrant</th><th>Why</th></tr>
+          </thead>
+          <tbody id="intel-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
   <!--  New Scan Page                                  -->
   <!-- ═══════════════════════════════════════════════ -->
   <div class="page" id="page-scan">
@@ -510,6 +535,7 @@ document.querySelectorAll('.nav-links a').forEach(a => {
     if (page === 'findings') loadFindings();
     if (page === 'assets') loadAssets();
     if (page === 'risk') loadRiskScores();
+    if (page === 'intel') loadIntel();
     if (page === 'scan') loadHistory();
   });
 });
@@ -532,6 +558,8 @@ async function loadOverview() {
   document.getElementById('s-critical').textContent = f.CRITICAL || 0;
   document.getElementById('s-high').textContent = f.HIGH || 0;
   document.getElementById('s-medium').textContent = f.MEDIUM || 0;
+  document.getElementById('s-intel').textContent =
+    (data.intelligence || {}).related_assets_discovered || 0;
 
   // Severity bar chart
   const sevChart = document.getElementById('sev-chart');
@@ -620,6 +648,34 @@ function statRow(label, val) {
     <span class="bar-label">${label}</span>
     <div style="color:var(--accent);font-weight:600;font-size:14px">${val || 0}</div>
   </div>`;
+}
+
+// ── Intelligence (unknown-asset discovery) ───────────
+async function loadIntel() {
+  let items = null;
+  const data = await api('/api/intelligence');
+  if (data && data.discovered) items = data.discovered;
+  else if (window.__EASM_DATA__ && window.__EASM_DATA__.intelligence)
+    items = window.__EASM_DATA__.intelligence.discovered;
+  const body = document.getElementById('intel-body');
+  if (!items || !items.length) {
+    body.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
+      'No related assets discovered. Run a scan with --discover-related.</td></tr>';
+    return;
+  }
+  const cls = l => l === 'HIGH' ? 'CRITICAL' : l === 'MEDIUM' ? 'HIGH' : 'MEDIUM';
+  body.innerHTML = items.map(d => {
+    const lvl = d.confidence_label || 'INFO';
+    const conf = (d.confidence != null) ? Number(d.confidence).toFixed(2) : '';
+    return `<tr>
+      <td><span class="sev sev-${cls(lvl)}">${lvl} ${conf}</span></td>
+      <td>${esc(d.value)}</td>
+      <td>${esc(d.asset_type)}</td>
+      <td>${esc((d.methods || []).join(', '))}</td>
+      <td>${esc(trunc(d.registrant_org, 30))}</td>
+      <td>${esc(trunc((d.reasons || []).join('; '), 80))}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Findings ─────────────────────────────────────────
@@ -860,6 +916,8 @@ function renderStaticData(data) {
   document.getElementById('s-critical').textContent = f.CRITICAL || 0;
   document.getElementById('s-high').textContent = f.HIGH || 0;
   document.getElementById('s-medium').textContent = f.MEDIUM || 0;
+  document.getElementById('s-intel').textContent =
+    (data.intelligence || {}).count || 0;
 }
 
 init();
