@@ -443,6 +443,7 @@ class EASMScanner:
         discover_related: bool = False,
         intel_min_confidence: float = 0.50,
         intel_expand: bool = False,
+        intel_pivots: Optional[list[str]] = None,
     ) -> None:
         """Execute the full Phase 1 + 2 + 3 pipeline."""
 
@@ -489,14 +490,18 @@ class EASMScanner:
         )
 
         # ── Intelligence: unknown-asset discovery (optional) ──
-        # Pivot from seeds to find related apex domains the org also owns
-        # (cert-SAN + WHOIS). Passive; results are inventoried always and only
-        # pulled into the active scan when --intel-expand is set.
+        # Pivot from seeds to find related assets the org also owns (cert-SAN,
+        # reverse-WHOIS, passive-DNS, favicon, ASN->org). Passive; results are
+        # inventoried always and only pulled into the active scan with
+        # --intel-expand.
         if discover_related and seeds.domains:
-            self._phase("Intel", "Unknown-Asset Discovery (cert-SAN pivot)")
+            self._phase("Intel", "Unknown-Asset Discovery")
             self.intel.min_confidence = intel_min_confidence
+            if intel_pivots:
+                self.intel.pivots = set(intel_pivots)
             self.discovered_assets = self.intel.discover(
                 list(seeds.domains), org_name=org_name,
+                seed_ips=list(seeds.ips),
             )
             for da in self.discovered_assets:
                 self.store.upsert_asset(self.intel.to_assets([da])[0])
@@ -505,12 +510,13 @@ class EASMScanner:
                     name="Unknown Related Asset Discovered",
                     category="Attack Surface Intelligence",
                     severity="INFO",
-                    asset_value=da.apex,
-                    asset_type="domain",
+                    asset_value=da.value,
+                    asset_type=da.asset_type,
                     description=(
-                        f"Apex domain linked to your seeds via "
-                        f"{da.method} (confidence {da.confidence_label} "
-                        f"{da.confidence:.2f}): " + "; ".join(da.reasons)
+                        f"{da.asset_type} linked to your seeds via "
+                        f"{', '.join(da.methods)} (confidence "
+                        f"{da.confidence_label} {da.confidence:.2f}): "
+                        + "; ".join(da.reasons)
                     ),
                     recommendation=(
                         "Confirm ownership; if org-owned, add it to scope and "
@@ -520,18 +526,20 @@ class EASMScanner:
                     evidence=(f"registrant={da.registrant_org}"
                               if da.registrant_org else ""),
                 ))
-            print(f"  Discovered {len(self.discovered_assets)} related apex "
-                  f"domain(s) (confidence >= {intel_min_confidence})")
+            print(f"  Discovered {len(self.discovered_assets)} related asset(s) "
+                  f"(confidence >= {intel_min_confidence})")
             for da in self.discovered_assets:
                 org = f"  ({da.registrant_org})" if da.registrant_org else ""
                 print(f"    [{da.confidence_label} {da.confidence:.2f}] "
-                      f"{da.apex}{org}")
+                      f"{da.value} ({da.asset_type}){org}")
             if intel_expand and self.discovered_assets:
-                added = sum(
-                    1 for da in self.discovered_assets
-                    if self.seed_mgr.add_domain(da.apex)
-                )
-                print(f"  Added {added} discovered apex(es) to scan scope")
+                added = 0
+                for da in self.discovered_assets:
+                    if da.asset_type == "domain" and self.seed_mgr.add_domain(da.value):
+                        added += 1
+                    elif da.asset_type == "cidr" and self.seed_mgr.add_cidr(da.value):
+                        added += 1
+                print(f"  Added {added} discovered asset(s) to scan scope")
 
         # ── Step 2: ASN expansion ──────────────────────────
         if seeds.asns:
@@ -1838,8 +1846,15 @@ examples:
     )
     parser.add_argument(
         "--intel-expand", action="store_true",
-        help="Add discovered apex domains to the scan scope (full assessment). "
+        help="Add discovered assets to the scan scope (full assessment). "
              "Use with --discover-related; expands scope, so opt-in",
+    )
+    parser.add_argument(
+        "--intel-pivots", metavar="LIST",
+        help="Comma-separated discovery pivots (default: cert-san-pivot). "
+             "Options: cert-san-pivot, reverse-whois, passive-dns, "
+             "favicon-hash, asn-org. Live pivots need their API key "
+             "(VIEWDNS_API_KEY / SHODAN_API_KEY) where applicable",
     )
     # Phase 4 options
     parser.add_argument(
@@ -1989,6 +2004,10 @@ examples:
             discover_related=args.discover_related,
             intel_min_confidence=args.intel_min_confidence,
             intel_expand=args.intel_expand,
+            intel_pivots=(
+                [s.strip() for s in args.intel_pivots.split(",") if s.strip()]
+                if args.intel_pivots else None
+            ),
         )
 
         scanner.print_report(min_severity=args.severity)

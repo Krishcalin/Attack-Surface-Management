@@ -78,12 +78,16 @@ The scanner wraps high-performance Go-based tools from [ProjectDiscovery](https:
 ## Key Features
 
 ### Attack Surface Intelligence (Unknown-Asset Discovery)
-- **Certificate-SAN pivoting** — finds *unknown* apex domains (siblings, subsidiaries, shadow IT) that share a TLS certificate with your seeds via Certificate Transparency
-- **WHOIS/registrant corroboration** — boosts confidence when a candidate's registrant organisation or email domain matches a seed
-- **Brand-token matching** — flags candidates whose domain label carries a seed brand token
-- **Confidence scoring with reasons** — each discovered apex gets a 0.0–1.0 score (HIGH/MEDIUM/LOW) and human-readable justification
+Discovers *unknown* org-owned assets (siblings, subsidiaries, shadow IT) by
+pivoting from your seeds, across five complementary methods:
+- **Certificate-SAN pivoting** — apex domains sharing a seed's TLS certificate (Certificate Transparency)
+- **Reverse-WHOIS** — domains with the same WHOIS registrant (independent source; ViewDNS, key-gated)
+- **Passive DNS** — domains that resolved to a seed IP (Mnemonic)
+- **Favicon-hash** — hosts serving the same site favicon (Shodan, key-gated)
+- **ASN→org expansion** — network prefixes of a seed-owned ASN (BGPView)
+- **Method-aware confidence scoring** — strongest method sets the base; multi-method corroboration plus WHOIS registrant-org / email / brand-token matches add to a 0.0–1.0 score (HIGH/MEDIUM/LOW) with human-readable reasons
 - **Shared-infrastructure filtering** — CDN/cloud/SaaS apexes (Cloudflare, AWS, Heroku, ...) and WHOIS-privacy emails are excluded to suppress false positives
-- **Passive & benign** — reads only public CT and WHOIS data; never scans the candidate hosts
+- **Passive & benign** — reads only public CT / WHOIS / passive-DNS / Shodan data; never scans the candidate hosts
 
 ### Discovery & Reconnaissance
 - Subdomain enumeration (crt.sh, subfinder, DNS brute-force)
@@ -316,8 +320,16 @@ python easm_scanner.py -d example.com --org "ACME Corp" --discover-related --int
 # Only report higher-confidence candidates
 python easm_scanner.py -d example.com --discover-related --intel-min-confidence 0.7
 
+# Enable additional pivots (live ones use their API key where applicable)
+export VIEWDNS_API_KEY=...   # reverse-whois
+export SHODAN_API_KEY=...    # favicon-hash
+python easm_scanner.py -d example.com -i 203.0.113.10 --org "ACME Corp" \
+  --discover-related \
+  --intel-pivots cert-san-pivot,reverse-whois,passive-dns,favicon-hash,asn-org
+
 # Standalone (discovery only, no full scan)
-python modules/intel_discovery.py example.com --org "ACME Corp" -v
+python modules/intel_discovery.py example.com --org "ACME Corp" \
+  --pivots cert-san-pivot,passive-dns --ip 203.0.113.10 -v
 ```
 
 Discovered apexes are added to the asset inventory (source `intel:cert-san-pivot`)
@@ -658,7 +670,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 46 tests
+python -m pytest tests/ -q        # 49 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13

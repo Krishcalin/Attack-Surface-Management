@@ -60,7 +60,7 @@ modules/
   screenshot_capture.py      # gowitness wrapper
   attribution_engine.py      # Multi-signal org attribution (7 signal types)
   asset_graph.py             # In-memory adjacency-list graph, BFS traversal
-  intel_discovery.py         # ASI: unknown-asset discovery via cert-SAN pivot + WHOIS (pure scoring core; injectable CT/WHOIS; standalone runner). Wired into easm_scanner via --discover-related / --intel-min-confidence / --intel-expand (optional "Intel" step after seed ingestion; inventories discovered apexes + EASM-INTEL-001 INFO findings; --intel-expand adds them to scan scope)
+  intel_discovery.py         # ASI: unknown-asset discovery. 5 pivots (cert-san-pivot, reverse-whois, passive-dns, favicon-hash, asn-org); method-aware scoring; pure correlation core; all clients injectable (live clients lazy/key-gated). Domain + CIDR results. Standalone runner. Wired into easm_scanner via --discover-related / --intel-min-confidence / --intel-expand / --intel-pivots (optional "Intel" step after seed ingestion; inventories discovered assets + EASM-INTEL-001 INFO findings; --intel-expand adds them to scan scope)
   # Phase 3 — Vulnerability Assessment
   vuln_detector.py           # CVE detection via version fingerprinting + NVD/EPSS
   nuclei_scanner.py          # Nuclei Go wrapper + 15 built-in Python templates
@@ -88,7 +88,7 @@ wordlists/
 
 ## Testing & CI
 
-- `pytest` suite in `tests/` (46 tests, no network): `python -m pytest tests/ -q`.
+- `pytest` suite in `tests/` (49 tests, no network): `python -m pytest tests/ -q`.
   - `test_models.py` — Asset/Finding dataclasses (ids, timestamps, round-trip, equality/rank).
   - `test_seed_manager.py` — seed parse/validate/classify, CIDR expansion + /16 cap, file load.
   - `test_asset_store.py` — SQLite upsert/merge, filters, findings CRUD (in-memory).
