@@ -60,6 +60,7 @@ modules/
   screenshot_capture.py      # gowitness wrapper
   attribution_engine.py      # Multi-signal org attribution (7 signal types)
   asset_graph.py             # In-memory adjacency-list graph, BFS traversal
+  intel_discovery.py         # ASI: unknown-asset discovery via cert-SAN pivot + WHOIS (pure scoring core; injectable CT/WHOIS; standalone runner)
   # Phase 3 — Vulnerability Assessment
   vuln_detector.py           # CVE detection via version fingerprinting + NVD/EPSS
   nuclei_scanner.py          # Nuclei Go wrapper + 15 built-in Python templates
@@ -87,12 +88,13 @@ wordlists/
 
 ## Testing & CI
 
-- `pytest` suite in `tests/` (33 tests, no network): `python -m pytest tests/ -q`.
+- `pytest` suite in `tests/` (45 tests, no network): `python -m pytest tests/ -q`.
   - `test_models.py` — Asset/Finding dataclasses (ids, timestamps, round-trip, equality/rank).
   - `test_seed_manager.py` — seed parse/validate/classify, CIDR expansion + /16 cap, file load.
   - `test_asset_store.py` — SQLite upsert/merge, filters, findings CRUD (in-memory).
   - `test_risk_scorer.py` — component math, score bands, all 5 auto-escalation rules, stats.
   - `test_smoke.py` — imports every pipeline module + version (catches import/syntax drift).
+  - `test_intel_discovery.py` — ASI unknown-asset discovery: pure helpers (apex/brand/cdn/scoring) + injected-I/O integration (fake CT/WHOIS).
   - `tests/conftest.py` puts the repo root on `sys.path`.
 - CI: `.github/workflows/tests.yml` — matrix Python 3.10-3.13, `pip install -r requirements.txt`,
   byte-compile, pytest, and a `python easm_scanner.py --help` smoke test.

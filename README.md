@@ -77,6 +77,14 @@ The scanner wraps high-performance Go-based tools from [ProjectDiscovery](https:
 
 ## Key Features
 
+### Attack Surface Intelligence (Unknown-Asset Discovery)
+- **Certificate-SAN pivoting** — finds *unknown* apex domains (siblings, subsidiaries, shadow IT) that share a TLS certificate with your seeds via Certificate Transparency
+- **WHOIS/registrant corroboration** — boosts confidence when a candidate's registrant organisation or email domain matches a seed
+- **Brand-token matching** — flags candidates whose domain label carries a seed brand token
+- **Confidence scoring with reasons** — each discovered apex gets a 0.0–1.0 score (HIGH/MEDIUM/LOW) and human-readable justification
+- **Shared-infrastructure filtering** — CDN/cloud/SaaS apexes (Cloudflare, AWS, Heroku, ...) and WHOIS-privacy emails are excluded to suppress false positives
+- **Passive & benign** — reads only public CT and WHOIS data; never scans the candidate hosts
+
 ### Discovery & Reconnaissance
 - Subdomain enumeration (crt.sh, subfinder, DNS brute-force)
 - Certificate Transparency log monitoring
@@ -292,6 +300,21 @@ python easm_scanner.py -d example.com --html report.html       # HTML report
 python easm_scanner.py -d example.com --siem-csv findings.csv  # CSV export
 python easm_scanner.py -d example.com --siem-jsonl findings.jsonl  # JSONL export
 ```
+
+### Unknown-Asset Discovery (Intelligence)
+
+Pivot from known seeds to discover related apex domains the org also owns:
+
+```bash
+# Discover unknown related apex domains for a seed (cert-SAN + WHOIS)
+python modules/intel_discovery.py example.com --org "ACME Corp" -v
+
+# Only report higher-confidence candidates
+python modules/intel_discovery.py example.com --org "ACME Corp" --min-confidence 0.7
+```
+
+Each result lists a confidence band (HIGH/MEDIUM/LOW), the registrant
+organisation, and the reasons it was linked to your seeds.
 
 ### REST API & Dashboard
 
@@ -625,7 +648,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 33 tests
+python -m pytest tests/ -q        # 45 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13
