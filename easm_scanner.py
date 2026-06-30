@@ -56,6 +56,7 @@ from modules.attribution_engine import AttributionEngine
 from modules.asset_graph import AssetGraph
 from modules.intel_discovery import IntelDiscovery
 from modules.threat_intel import ThreatIntel
+from modules.detection_pairing import DetectionPairer
 
 # Phase 3 modules
 from modules.subdomain_takeover import SubdomainTakeoverDetector
@@ -396,6 +397,9 @@ class EASMScanner:
         # Threat-intelligence IOC enrichment (free reputation/IOC feeds)
         self.ti = ThreatIntel(verbose=verbose)
         self.ti_matches: list = []
+        # Detection pairing (MITRE ATT&CK + Sigma per finding)
+        self.pairer = DetectionPairer(verbose=verbose)
+        self.detection_pairings: list = []
 
         # Phase 2 result caches
         self.whois_records: dict = {}
@@ -449,6 +453,8 @@ class EASMScanner:
         intel_expand: bool = False,
         intel_pivots: Optional[list[str]] = None,
         threat_intel: bool = False,
+        detect: bool = False,
+        sigma_out: str = "",
     ) -> None:
         """Execute the full Phase 1 + 2 + 3 pipeline."""
 
@@ -1210,6 +1216,21 @@ class EASMScanner:
             if stats.get("auto_escalated"):
                 print(f"  Auto-escalated: {stats['auto_escalated']}")
 
+        # ── Detection pairing (optional) ──
+        # Pair each finding with its MITRE ATT&CK technique + a Sigma rule to
+        # detect exploitation. Pure/local; annotates findings (-> JSON/report)
+        # and optionally writes Sigma .yml files for the SOC.
+        if detect or sigma_out:
+            self._phase("Detect", "Detection Pairing (MITRE ATT&CK + Sigma)")
+            self.detection_pairings = self.pairer.annotate(self.findings)
+            cov = self.pairer.mitre_coverage(self.detection_pairings)
+            print(f"  Paired {cov['paired_findings']} finding(s): "
+                  f"{len(cov['techniques'])} ATT&CK technique(s), "
+                  f"{cov['sigma_rules']} Sigma rule(s)")
+            if sigma_out:
+                n = self.pairer.write_sigma(self.detection_pairings, sigma_out)
+                print(f"  Wrote {n} Sigma rule(s) to {sigma_out}")
+
         self.end_time = time.time()
         self._phase_done()
 
@@ -1397,6 +1418,7 @@ class EASMScanner:
                 "matches": len(self.ti_matches),
                 "by_source": dict(Counter(m.source for m in self.ti_matches)),
             },
+            "detection": self.pairer.mitre_coverage(self.detection_pairings),
             "risk": self.risk_scorer.aggregate_stats(self.risk_scores),
             "graph": graph_stats,
         }
@@ -1888,6 +1910,16 @@ examples:
         help="Cross-reference discovered IPs/domains against free threat-intel "
              "feeds (abuse.ch, FireHOL, Spamhaus, Tor); flags known-bad assets",
     )
+    parser.add_argument(
+        "--detect", action="store_true",
+        help="Detection pairing: annotate findings with MITRE ATT&CK techniques "
+             "and detection guidance (blue-team artifacts)",
+    )
+    parser.add_argument(
+        "--sigma-out", metavar="DIR",
+        help="Write a Sigma detection rule per applicable finding to DIR "
+             "(implies --detect)",
+    )
     # Trend-over-time options
     parser.add_argument(
         "--trends", action="store_true",
@@ -2051,6 +2083,8 @@ examples:
                 if args.intel_pivots else None
             ),
             threat_intel=args.threat_intel,
+            detect=args.detect or bool(args.sigma_out),
+            sigma_out=args.sigma_out or "",
         )
 
         scanner.print_report(min_severity=args.severity)

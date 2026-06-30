@@ -28,6 +28,7 @@ def test_all_pipeline_modules_import():
         "modules.risk_scorer", "modules.alerting", "modules.siem_export",
         "modules.jira_integration", "modules.scheduler",
         "modules.intel_discovery", "modules.threat_intel", "modules.trends",
+        "modules.detection_pairing",
     ]
     for m in mods:
         assert importlib.import_module(m) is not None

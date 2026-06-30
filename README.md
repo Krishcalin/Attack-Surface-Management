@@ -100,6 +100,14 @@ threat-intel feeds — answering *"is any of my own asset already known-bad?"*:
 - **Tor exit nodes** — owned IPs acting as Tor exits
 - **No API keys required**; matched locally, passive (never contacts the flagged hosts); results become `EASM-TI-*` findings that feed risk scoring
 
+### Detection Pairing (Blue-Team Artifacts)
+For every exposure, emit the **defensive counterpart** — the differentiator no
+EASM (or Recorded Future) leads with:
+- **MITRE ATT&CK mapping** — each finding is tagged with the technique(s) an attacker would use (T1190, T1133, T1021.x, T1078/T1110, T1530, T1590.002, T1584.001, T1071/T1090, ...)
+- **Generated Sigma rules** — ready-to-deploy detections for exploitable findings (exposed services, sensitive-path access, default-cred logons, public-bucket reads, DNS AXFR, subdomain-takeover, and traffic to threat-intel IOCs)
+- **Plain-language log signatures** + log-source guidance for guidance-only findings (CVE/Nuclei/TLS/headers)
+- **Deterministic Sigma IDs**, written one-`.yml`-per-finding via `--sigma-out`; findings are annotated with `mitre` + `detection` metadata (flows into JSON/reports); built-in YAML emitter (no PyYAML dependency)
+
 ### Discovery & Reconnaissance
 - Subdomain enumeration (crt.sh, subfinder, DNS brute-force)
 - Certificate Transparency log monitoring
@@ -331,6 +339,25 @@ python modules/threat_intel.py --ip 203.0.113.10 --domain bad.example.net -v
 
 Matches are recorded as `EASM-TI-*` findings (botnet C2, malware IOC, malware-URL
 host, malicious/hijacked netblock, Tor exit) and flow into risk scoring.
+
+### Detection Pairing (MITRE ATT&CK + Sigma)
+
+Turn exposures into detections the SOC can deploy:
+
+```bash
+# Annotate findings with MITRE ATT&CK techniques + detection guidance
+python easm_scanner.py -d example.com --detect
+
+# Also write a Sigma rule per exploitable finding (implies --detect)
+python easm_scanner.py -d example.com --sigma-out ./sigma
+
+# Strongest combo: known-bad assets -> ATT&CK -> Sigma
+python easm_scanner.py -d example.com --threat-intel --sigma-out ./sigma
+```
+
+Each finding is tagged with ATT&CK technique(s); exploitable ones also yield a
+Sigma rule (firewall/web/auth/DNS/cloud logsource as appropriate). The scan
+summary reports ATT&CK technique/tactic coverage and Sigma-rule count.
 
 ### Unknown-Asset Discovery (Intelligence)
 
@@ -725,7 +752,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 72 tests
+python -m pytest tests/ -q        # 85 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13
