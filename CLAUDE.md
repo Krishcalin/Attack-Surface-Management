@@ -85,6 +85,19 @@ wordlists/
   subdomains-top1000.txt     # ~160 common subdomain prefixes
 ```
 
+## Testing & CI
+
+- `pytest` suite in `tests/` (33 tests, no network): `python -m pytest tests/ -q`.
+  - `test_models.py` — Asset/Finding dataclasses (ids, timestamps, round-trip, equality/rank).
+  - `test_seed_manager.py` — seed parse/validate/classify, CIDR expansion + /16 cap, file load.
+  - `test_asset_store.py` — SQLite upsert/merge, filters, findings CRUD (in-memory).
+  - `test_risk_scorer.py` — component math, score bands, all 5 auto-escalation rules, stats.
+  - `test_smoke.py` — imports every pipeline module + version (catches import/syntax drift).
+  - `tests/conftest.py` puts the repo root on `sys.path`.
+- CI: `.github/workflows/tests.yml` — matrix Python 3.10-3.13, `pip install -r requirements.txt`,
+  byte-compile, pytest, and a `python easm_scanner.py --help` smoke test.
+- `__pycache__` is git-ignored (untracked); keep it that way.
+
 ## Coding Conventions
 
 ### Module Pattern

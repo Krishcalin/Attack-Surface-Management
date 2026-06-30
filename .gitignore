@@ -4,6 +4,17 @@ __pycache__/
 *.pyo
 *.db
 *.sqlite3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
 
 ### AL ###
 #Template for AL projects for Dynamics 365 Business Central

@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <img src="https://github.com/Krishcalin/Attack-Surface-Management/actions/workflows/tests.yml/badge.svg" alt="Tests"/>
   <img src="https://img.shields.io/badge/version-4.0.0-blue?style=flat-square" alt="Version"/>
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"/>
@@ -612,6 +613,23 @@ To prevent accidental abuse or resource exhaustion, the scanner enforces the fol
 | `mysql-connector-python` | MySQL credential testing |
 | `psycopg2-binary` | PostgreSQL credential testing |
 | `pymongo` | MongoDB credential testing |
+
+---
+
+## Testing
+
+A `pytest` suite covers the core engine — data models, seed parsing/validation,
+the SQLite asset store, and the risk-scoring engine — plus an import smoke test
+that loads every pipeline module. All tests are deterministic and require **no
+network or SAP/Go tooling**.
+
+```bash
+pip install pytest
+python -m pytest tests/ -q        # 33 tests
+```
+
+GitHub Actions runs the suite on every push/PR across Python 3.10–3.13
+(`.github/workflows/tests.yml`).
 
 ---
 
