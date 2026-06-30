@@ -60,6 +60,7 @@ modules/
   screenshot_capture.py      # gowitness wrapper
   attribution_engine.py      # Multi-signal org attribution (7 signal types)
   asset_graph.py             # In-memory adjacency-list graph, BFS traversal
+  stix_export.py             # STIX 2.1 bundle export: assets->SCOs, TI->indicator, others->x-easm-finding SDO, CVEs->vulnerability, MITRE->attack-pattern, + relationships (referential-integrity guaranteed). Deterministic uuid5 IDs, injectable timestamp, stdlib JSON. Scanner.save_stix() / CLI --stix FILE
   detection_pairing.py       # Detection pairing: maps each finding -> MITRE ATT&CK technique(s) + (for exploitable families) a generated Sigma rule via a built-in YAML emitter (no PyYAML); deterministic uuid5 Sigma IDs; DetectionPairer.annotate()/pair_all()/mitre_coverage()/write_sigma(). Wired via --detect / --sigma-out (final step; annotates findings, summary "detection" block)
   threat_intel.py            # Threat-intel IOC enrichment: matches discovered IPs/domains vs free feeds (Feodo/ThreatFox/URLhaus/FireHOL/Spamhaus/Tor); pure parsers + injectable loader/fetch; EASM-TI-001..006 findings. Wired via --threat-intel (optional step before risk scoring; feeds risk scoring + summary threat_intel block)
   intel_discovery.py         # ASI: unknown-asset discovery. 5 pivots (cert-san-pivot, reverse-whois, passive-dns, favicon-hash, asn-org); method-aware scoring; pure correlation core; all clients injectable (live clients lazy/key-gated). Domain + CIDR results. Standalone runner. Wired into easm_scanner via --discover-related / --intel-min-confidence / --intel-expand / --intel-pivots (optional "Intel" step after seed ingestion; inventories discovered assets + EASM-INTEL-001 INFO findings; --intel-expand adds them to scan scope)
@@ -91,7 +92,7 @@ wordlists/
 
 ## Testing & CI
 
-- `pytest` suite in `tests/` (85 tests, no network): `python -m pytest tests/ -q`.
+- `pytest` suite in `tests/` (93 tests, no network): `python -m pytest tests/ -q`.
   - `test_models.py` — Asset/Finding dataclasses (ids, timestamps, round-trip, equality/rank).
   - `test_seed_manager.py` — seed parse/validate/classify, CIDR expansion + /16 cap, file load.
   - `test_asset_store.py` — SQLite upsert/merge, filters, findings CRUD (in-memory).
@@ -100,6 +101,7 @@ wordlists/
   - `test_intel_discovery.py` — ASI unknown-asset discovery: pure helpers + method-aware scoring + multi-pivot injected-I/O integration.
   - `test_trends.py` — risk trend-over-time: compute_trends direction/exposure-reduction/sparkline + scheduler.trend_points loader.
   - `test_dashboard.py` — dashboard Intelligence payload (`_build_scan_data`) + render() carries the intel nav/page + injected data.
+  - `test_stix_export.py` — SCO/SDO builders, indicator patterns, bundle structure, vuln/attack-pattern dedupe, referential integrity, determinism, save round-trip.
   - `test_detection_pairing.py` — MITRE mapping per family, Sigma generation (selection fields, deterministic id, YAML), coverage, annotate, write_sigma.
   - `test_threat_intel.py` — TI feed parsers (feodo/threatfox/urlhaus/netset/spamhaus/tor), ThreatFeeds IP/CIDR/domain matching, end-to-end via injected fetch, to_findings rules/severity.
   - `tests/conftest.py` puts the repo root on `sys.path`.

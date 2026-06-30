@@ -139,6 +139,7 @@ EASM (or Recorded Future) leads with:
 - **Interactive Dashboard** — Dark-themed SPA with severity charts, asset inventory, risk scores, scan launcher
 - **Multi-Channel Alerting** — Email (SMTP/TLS), Slack (Block Kit), Microsoft Teams (MessageCard), generic webhooks, console
 - **SIEM Export** — Splunk HEC (batched), Elasticsearch (bulk API), Syslog CEF (UDP/TCP), CSV, JSON Lines
+- **STIX 2.1 Export** — assets/findings/IOCs/CVEs/ATT&CK as a STIX bundle with relationships (`--stix`) for TIP/SIEM/SOAR (MISP, OpenCTI, Sentinel)
 - **Jira Integration** — Cloud/Server REST API v2, severity-to-priority mapping, JQL deduplication, dry-run mode
 - **Scan Scheduling** — SQLite-backed history with finding/asset diff detection and alert triggers
 - **Risk Trend-Over-Time** — tracks attack-surface metrics across scans and reports footprint reduction (CRITICAL+HIGH exposure %, per-metric direction + ASCII sparklines)
@@ -321,6 +322,7 @@ python easm_scanner.py -d example.com --nuclei-templates /path # Custom Nuclei t
 # Output formats
 python easm_scanner.py -d example.com --json scan.json         # JSON report
 python easm_scanner.py -d example.com --html report.html       # HTML report
+python easm_scanner.py -d example.com --detect --stix bundle.json  # STIX 2.1 (TIP/SIEM/SOAR)
 python easm_scanner.py -d example.com --siem-csv findings.csv  # CSV export
 python easm_scanner.py -d example.com --siem-jsonl findings.jsonl  # JSONL export
 ```
@@ -752,7 +754,7 @@ network or SAP/Go tooling**.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q        # 85 tests
+python -m pytest tests/ -q        # 93 tests
 ```
 
 GitHub Actions runs the suite on every push/PR across Python 3.10–3.13

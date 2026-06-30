@@ -1524,6 +1524,13 @@ class EASMScanner:
                 print(f"      Fix     : {f.recommendation[:120]}")
             print()
 
+    def save_stix(self, filepath: str) -> None:
+        """Export assets + findings as a STIX 2.1 bundle (TIP/SIEM/SOAR)."""
+        from modules.stix_export import StixExporter
+        exporter = StixExporter(verbose=self.verbose)
+        bundle = exporter.build_bundle(self.store.get_assets(), self.findings)
+        exporter.save(bundle, filepath)
+
     def save_json(self, filepath: str) -> None:
         """Save scan results as JSON."""
         data = {
@@ -1838,6 +1845,11 @@ examples:
         help="Save results as HTML report",
     )
     parser.add_argument(
+        "--stix", metavar="FILE", dest="stix_file",
+        help="Export a STIX 2.1 bundle (assets/findings/IOCs/CVEs/ATT&CK) "
+             "for TIP/SIEM/SOAR ingestion",
+    )
+    parser.add_argument(
         "--severity", metavar="LEVEL", default="INFO",
         choices=["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
         help="Minimum severity to display (default: INFO)",
@@ -2109,6 +2121,8 @@ examples:
             scanner.save_json(args.json_file)
         if args.html_file:
             scanner.save_html(args.html_file)
+        if args.stix_file:
+            scanner.save_stix(args.stix_file)
 
         # ── Phase 4: Send alerts on findings ─────────
         critical_high = [
